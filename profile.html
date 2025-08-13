@@ -21,7 +21,7 @@
     text-align: center;
     width: 300px;
   }
-  input[type="text"], input[type="email"], input[type="file"] {
+  input[type="text"], input[type="email"] {
     width: 90%;
     padding: 5px;
     margin: 10px 0;
@@ -37,66 +37,37 @@
     cursor: pointer;
     font-weight: bold;
   }
-  img {
-    max-width: 100px;
-    border-radius: 50%;
-    margin-bottom: 10px;
-  }
 </style>
 </head>
 <body>
 <div id="editor">
   <h2>Edit Your Profile</h2>
-  <img id="avatar-preview" src="" alt="Profile Picture"><br>
   <input type="text" id="edit-username" placeholder="Username"><br>
   <input type="email" id="edit-email" placeholder="Email"><br>
-  <input type="file" id="edit-avatar" accept="image/*"><br>
   <button id="save-profile">Save Profile</button>
 </div>
 
 <script>
-  // Example user object (replace with your system)
+  // User object: stores username and email
   let currentUser = {
-    username: "BestieUser",
-    email: "bestie@example.com",
-    avatar: ""
+    username: "",
+    email: ""
   };
 
+  // References to input fields
   const usernameInput = document.getElementById("edit-username");
   const emailInput = document.getElementById("edit-email");
-  const avatarInput = document.getElementById("edit-avatar");
-  const avatarPreview = document.getElementById("avatar-preview");
 
-  // Load current info
+  // Pre-fill inputs with current values
   usernameInput.value = currentUser.username;
   emailInput.value = currentUser.email;
-  if(currentUser.avatar) avatarPreview.src = currentUser.avatar;
 
-  avatarInput.addEventListener("change", () => {
-    const file = avatarInput.files[0];
-    if(file) {
-      const reader = new FileReader();
-      reader.onload = () => avatarPreview.src = reader.result;
-      reader.readAsDataURL(file);
-    }
-  });
-
+  // Save button updates the user object
   document.getElementById("save-profile").addEventListener("click", () => {
-    currentUser.username = usernameInput.value;
-    currentUser.email = emailInput.value;
-
-    if(avatarInput.files[0]) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        currentUser.avatar = reader.result;
-        alert("Profile updated! 🎉");
-        console.log(currentUser);
-      };
-      reader.readAsDataURL(avatarInput.files[0]);
-    } else {
-      alert("Profile updated! 🎉");
-      console.log(currentUser);
-    }
+    currentUser.username = usernameInput.value; // Updates username
+    currentUser.email = emailInput.value;       // Updates email
+    alert("Profile updated! 🎉");               // Confirmation
+    console.log(currentUser);                  // For debugging
   });
 </script>
 </body>
