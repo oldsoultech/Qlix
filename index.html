@@ -49,6 +49,7 @@ button,input,textarea{font:inherit;color:inherit}
     <button class="btn" id="emailSignUpBtn">Sign Up</button>
     <button class="btn" id="emailSignInBtn">Sign In</button>
     <button class="btn" id="signOutBtn" style="display:none;">Sign Out</button>
+    <a href="profile.html" class="btn" id="profileBtn" style="display:none;">Profile</a>
   </div>
 </header>
 
@@ -103,6 +104,7 @@ const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
 const emailSignUpBtn = document.getElementById("emailSignUpBtn");
 const emailSignInBtn = document.getElementById("emailSignInBtn");
+const profileBtn = document.getElementById("profileBtn");
 
 let currentUser = null;
 
@@ -112,6 +114,7 @@ function updateUI(){
     emailSignUpBtn.style.display = "none";
     emailSignInBtn.style.display = "none";
     signOutBtn.style.display = "inline-block";
+    profileBtn.style.display = "inline-block";
     composer.style.display = "grid";
     document.getElementById("userInfo").style.display="block";
     userNameEl.textContent = currentUser.displayName || currentUser.email;
@@ -122,6 +125,7 @@ function updateUI(){
     emailSignUpBtn.style.display = "inline-block";
     emailSignInBtn.style.display = "inline-block";
     signOutBtn.style.display = "none";
+    profileBtn.style.display = "none";
     composer.style.display = "none";
     document.getElementById("userInfo").style.display="none";
   }
