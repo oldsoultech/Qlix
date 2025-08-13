@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Profile Editor</title>
+<style>
+  body {
+    font-family: 'Comfortaa', sans-serif;
+    background: #a0d8f1;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+  }
+  #editor {
+    background: #4da6ff;
+    padding: 30px;
+    border-radius: 20px;
+    text-align: center;
+    width: 300px;
+  }
+  input[type="text"], input[type="email"], input[type="file"] {
+    width: 90%;
+    padding: 5px;
+    margin: 10px 0;
+    border-radius: 5px;
+    border: none;
+  }
+  button {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background: #ff7f50;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  img {
+    max-width: 100px;
+    border-radius: 50%;
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+<div id="editor">
+  <h2>Edit Your Profile</h2>
+  <img id="avatar-preview" src="" alt="Profile Picture"><br>
+  <input type="text" id="edit-username" placeholder="Username"><br>
+  <input type="email" id="edit-email" placeholder="Email"><br>
+  <input type="file" id="edit-avatar" accept="image/*"><br>
+  <button id="save-profile">Save Profile</button>
+</div>
+
+<script>
+  // Example user object (replace with your system)
+  let currentUser = {
+    username: "BestieUser",
+    email: "bestie@example.com",
+    avatar: ""
+  };
+
+  const usernameInput = document.getElementById("edit-username");
+  const emailInput = document.getElementById("edit-email");
+  const avatarInput = document.getElementById("edit-avatar");
+  const avatarPreview = document.getElementById("avatar-preview");
+
+  // Load current info
+  usernameInput.value = currentUser.username;
+  emailInput.value = currentUser.email;
+  if(currentUser.avatar) avatarPreview.src = currentUser.avatar;
+
+  avatarInput.addEventListener("change", () => {
+    const file = avatarInput.files[0];
+    if(file) {
+      const reader = new FileReader();
+      reader.onload = () => avatarPreview.src = reader.result;
+      reader.readAsDataURL(file);
+    }
+  });
+
+  document.getElementById("save-profile").addEventListener("click", () => {
+    currentUser.username = usernameInput.value;
+    currentUser.email = emailInput.value;
+
+    if(avatarInput.files[0]) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        currentUser.avatar = reader.result;
+        alert("Profile updated! 🎉");
+        console.log(currentUser);
+      };
+      reader.readAsDataURL(avatarInput.files[0]);
+    } else {
+      alert("Profile updated! 🎉");
+      console.log(currentUser);
+    }
+  });
+</script>
+</body>
+</html>
