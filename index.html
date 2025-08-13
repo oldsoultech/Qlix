@@ -8,8 +8,6 @@
 <style>
 :root {
   --panel: rgba(255,255,255,0.15);
-  --text: #ffffff;
-  --muted: rgba(255,255,255,0.7);
   --radius: 16px;
   --shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
@@ -17,18 +15,23 @@ body {
   margin:0;
   font-family:'Comfortaa', sans-serif;
   background: linear-gradient(135deg, #ff4b1f, #ff9068, #f9ff00, #32ff6a, #0ff, #9b59b6);
-  color: var(--text);
+  color: black; /* Main text is black for readability */
 }
 a{color:inherit;text-decoration:none}
 button,input,textarea{font:inherit;color:inherit}
 .topbar{position:sticky;top:0;backdrop-filter:blur(10px);background:#000;padding:10px 16px;display:flex;align-items:center;gap:10px;}
-.logo{font-weight:800;letter-spacing:.3px;}
+.logo{font-weight:800;letter-spacing:.3px; color:white;}
 .wrap{display:grid;grid-template-columns:260px 1fr;gap:16px;max-width:1100px;margin:14px auto;padding:0 16px;}
 .sidebar{position:sticky;top:64px;align-self:start;}
-.card{background:var(--panel);padding:14px;border-radius:var(--radius);box-shadow:var(--shadow);}
-.composer textarea{width:100%;min-height:70px;padding:10px;border-radius:12px;border:none;background:rgba(255,255,255,0.2);color:#fff;resize:vertical;}
+.card, .composer, .post { 
+  background:var(--panel);
+  padding:14px;
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  color: black; /* text inside panels is black */
+}
+.composer textarea{width:100%;min-height:70px;padding:10px;border-radius:12px;border:none;background:rgba(255,255,255,0.8);color:black;resize:vertical;}
 .feed{display:grid;gap:12px;}
-.post{background:var(--panel);padding:12px;border-radius:14px;box-shadow:var(--shadow);}
 .post .meta{display:flex;gap:10px;font-size:14px;align-items:center;}
 .post .actions{display:flex;gap:10px;margin-top:8px;}
 .btn{padding:8px 12px;border-radius:12px;border:none;cursor:pointer;transition:.2s;}
@@ -73,7 +76,7 @@ button,input,textarea{font:inherit;color:inherit}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, query, orderBy, getDocs, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, query, getDocs, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
 const firebaseConfig = {
@@ -172,7 +175,6 @@ usernameInput.addEventListener("change", async () => {
   const newName = usernameInput.value.trim();
   if(!newName || !currentUser) return;
   await updateProfile(currentUser,{displayName:newName});
-  // Update all posts by this user
   const postsQuery = query(collection(db,"posts"), where("authorId","==",currentUser.uid));
   const postDocs = await getDocs(postsQuery);
   postDocs.forEach(async docSnap => {
