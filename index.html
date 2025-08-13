@@ -6,54 +6,58 @@
 <title>Qlix</title>
 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --panel: rgba(255,255,255,0.15);
-    --text: #ffffff;
-    --muted: rgba(255,255,255,0.7);
-    --radius: 16px;
-    --shadow: 0 8px 24px rgba(0,0,0,0.35);
-  }
-  body {margin:0; font-family:'Comfortaa', sans-serif; background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%); color: var(--text);}
-  a{color:inherit;text-decoration:none}
-  button,input,textarea{font:inherit;color:inherit}
-  .topbar{position:sticky;top:0;backdrop-filter:blur(10px);background:rgba(0,0,0,0.4); padding:10px 16px;display:flex;align-items:center;gap:10px;}
-  .logo{font-weight:800;letter-spacing:.3px;}
-  .wrap{display:grid;grid-template-columns:260px 1fr;gap:16px;max-width:1100px;margin:14px auto;padding:0 16px;}
-  .sidebar{position:sticky;top:64px;align-self:start;}
-  .card{background:var(--panel);padding:14px;border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(10px);}
-  .composer textarea{width:100%;min-height:70px;padding:10px;border-radius:12px;border:none;background:rgba(255,255,255,0.3);color:#fff;resize:vertical;}
-  .feed{display:grid;gap:12px;}
-  .post{background:var(--panel);padding:12px;border-radius:14px;box-shadow:var(--shadow);}
-  .post .meta{display:flex;gap:10px;font-size:14px;}
-  .post .actions{display:flex;gap:10px;margin-top:8px;}
-  .btn{padding:8px 12px;border-radius:12px;border:none;cursor:pointer;transition:.2s;}
-  .btn:hover{opacity:.9;}
-  .primary{background:#fff;color:#ff4b1f;font-weight:700;}
-  .auth-section{display:flex;gap:8px;margin-bottom:10px;}
+:root {
+  --panel: rgba(255,255,255,0.15);
+  --text: #ffffff;
+  --muted: rgba(255,255,255,0.7);
+  --radius: 16px;
+  --shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+body {
+  margin:0;
+  font-family:'Comfortaa', sans-serif;
+  background: linear-gradient(135deg, #ff4b1f, #ff9068, #f9ff00, #32ff6a, #0ff, #9b59b6);
+  color: var(--text);
+}
+a{color:inherit;text-decoration:none}
+button,input,textarea{font:inherit;color:inherit}
+.topbar{position:sticky;top:0;backdrop-filter:blur(10px);background:#000;padding:10px 16px;display:flex;align-items:center;gap:10px;}
+.logo{font-weight:800;letter-spacing:.3px;}
+.wrap{display:grid;grid-template-columns:260px 1fr;gap:16px;max-width:1100px;margin:14px auto;padding:0 16px;}
+.sidebar{position:sticky;top:64px;align-self:start;}
+.card{background:var(--panel);padding:14px;border-radius:var(--radius);box-shadow:var(--shadow);}
+.composer textarea{width:100%;min-height:70px;padding:10px;border-radius:12px;border:none;background:rgba(255,255,255,0.2);color:#fff;resize:vertical;}
+.feed{display:grid;gap:12px;}
+.post{background:var(--panel);padding:12px;border-radius:14px;box-shadow:var(--shadow);}
+.post .meta{display:flex;gap:10px;font-size:14px;align-items:center;}
+.post .actions{display:flex;gap:10px;margin-top:8px;}
+.btn{padding:8px 12px;border-radius:12px;border:none;cursor:pointer;transition:.2s;}
+.btn:hover{opacity:.9;}
+.primary{background:#fff;color:#ff4b1f;font-weight:700;}
+.profile-pic{width:32px;height:32px;border-radius:50%;object-fit:cover;}
 </style>
 </head>
 <body>
 
 <header class="topbar">
   <div class="logo">Qlix</div>
+  <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+    <button class="btn" id="googleSignInBtn">Sign in with Google</button>
+    <input type="text" id="emailInput" placeholder="Email" style="padding:6px; border-radius:8px;">
+    <input type="password" id="passwordInput" placeholder="Password" style="padding:6px; border-radius:8px;">
+    <input type="text" id="usernameInput" placeholder="Username (signup only)" style="padding:6px; border-radius:8px;">
+    <button class="btn" id="emailSignUpBtn">Sign Up</button>
+    <button class="btn" id="emailSignInBtn">Sign In</button>
+    <button class="btn" id="signOutBtn" style="display:none;">Sign Out</button>
+  </div>
 </header>
 
 <main class="wrap">
   <aside class="sidebar">
-    <div class="card" id="authCard">
-      <div class="auth-section" id="googleAuth">
-        <button class="btn" id="googleSignInBtn">Sign in with Google</button>
-        <button class="btn" id="signOutBtn" style="display:none;">Sign Out</button>
-      </div>
-      <div class="auth-section" id="emailAuth">
-        <input type="email" id="emailInput" placeholder="Email" style="flex:1;padding:6px;border-radius:8px;border:none;">
-        <input type="password" id="passInput" placeholder="Password" style="flex:1;padding:6px;border-radius:8px;border:none;">
-        <button class="btn primary" id="emailSignUpBtn">Sign Up</button>
-        <button class="btn primary" id="emailSignInBtn">Sign In</button>
-      </div>
-      <div id="userInfo" style="display:none; margin-top:10px;">
-        <div id="userName"></div>
-      </div>
+    <div class="card" id="userInfo" style="display:none;">
+      <img id="userPic" class="profile-pic" src="" alt="Profile picture">
+      <div id="userName"></div>
+      <input type="file" id="profilePicInput" style="display:block;margin-top:6px;">
     </div>
   </aside>
   <section style="flex:1;">
@@ -67,8 +71,9 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, arrayUnion, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDP0yDxmCrcIXK_DkdXJZB_XzPRVPXMCyo",
@@ -83,6 +88,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 const googleBtn = document.getElementById("googleSignInBtn");
@@ -90,103 +96,134 @@ const signOutBtn = document.getElementById("signOutBtn");
 const composer = document.getElementById("composer");
 const feed = document.getElementById("feed");
 const userNameEl = document.getElementById("userName");
+const userPicEl = document.getElementById("userPic");
+const profilePicInput = document.getElementById("profilePicInput");
 
 const emailInput = document.getElementById("emailInput");
-const passInput = document.getElementById("passInput");
+const passwordInput = document.getElementById("passwordInput");
+const usernameInput = document.getElementById("usernameInput");
 const emailSignUpBtn = document.getElementById("emailSignUpBtn");
 const emailSignInBtn = document.getElementById("emailSignInBtn");
 
 let currentUser = null;
 
+function updateUI(){
+  if(currentUser){
+    googleBtn.style.display = "none";
+    emailSignUpBtn.style.display = "none";
+    emailSignInBtn.style.display = "none";
+    signOutBtn.style.display = "inline-block";
+    composer.style.display = "grid";
+    document.getElementById("userInfo").style.display="block";
+    userNameEl.textContent = currentUser.displayName || currentUser.email;
+    userPicEl.src = currentUser.photoURL || "https://via.placeholder.com/32";
+  } else {
+    googleBtn.style.display = "inline-block";
+    emailSignUpBtn.style.display = "inline-block";
+    emailSignInBtn.style.display = "inline-block";
+    signOutBtn.style.display = "none";
+    composer.style.display = "none";
+    document.getElementById("userInfo").style.display="none";
+  }
+}
+
 googleBtn.addEventListener("click", async () => {
   try {
     const result = await signInWithPopup(auth, provider);
     currentUser = result.user;
-    loginUI();
-  } catch(e){ console.error(e); alert("Google sign-in failed."); }
+    updateUI();
+  } catch(e){alert(e);}
 });
 
 signOutBtn.addEventListener("click", async () => {
   await signOut(auth);
   currentUser = null;
-  loginUI();
+  updateUI();
 });
 
-emailSignUpBtn.addEventListener("click", async()=>{
-  try{
-    const userCred = await createUserWithEmailAndPassword(auth,emailInput.value,passInput.value);
+emailSignUpBtn.addEventListener("click", async () => {
+  const email = emailInput.value;
+  const password = passwordInput.value;
+  const username = usernameInput.value;
+  if(!email || !password || !username){alert("Fill all fields for sign-up"); return;}
+  try {
+    const userCred = await createUserWithEmailAndPassword(auth,email,password);
+    await updateProfile(userCred.user, {displayName: username, photoURL:"https://via.placeholder.com/32"});
+  } catch(e){alert(e);}
+});
+
+emailSignInBtn.addEventListener("click", async () => {
+  const email = emailInput.value;
+  const password = passwordInput.value;
+  if(!email || !password){alert("Fill both fields for sign-in"); return;}
+  try {
+    const userCred = await signInWithEmailAndPassword(auth,email,password);
     currentUser = userCred.user;
-    loginUI();
-  }catch(e){console.error(e); alert("Email sign-up failed.");}
+    updateUI();
+  } catch(e){alert(e);}
 });
 
-emailSignInBtn.addEventListener("click", async()=>{
-  try{
-    const userCred = await signInWithEmailAndPassword(auth,emailInput.value,passInput.value);
-    currentUser = userCred.user;
-    loginUI();
-  }catch(e){console.error(e); alert("Email sign-in failed.");}
+profilePicInput.addEventListener("change", async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const storageRef = ref(storage, 'profilePics/' + currentUser.uid);
+  await uploadBytes(storageRef, file);
+  const url = await getDownloadURL(storageRef);
+  await updateProfile(currentUser,{photoURL:url});
+  userPicEl.src = url;
 });
 
-function loginUI(){
-  if(currentUser){
-    googleBtn.style.display = "none";
-    signOutBtn.style.display = "inline-block";
-    composer.style.display = "grid";
-    emailSignUpBtn.style.display = emailSignInBtn.style.display = 'none';
-    userNameEl.textContent = currentUser.displayName || currentUser.email;
-    document.getElementById("userInfo").style.display="block";
-  } else {
-    googleBtn.style.display = "inline-block";
-    signOutBtn.style.display = "none";
-    composer.style.display = "none";
-    emailSignUpBtn.style.display = emailSignInBtn.style.display = 'inline-block';
-    document.getElementById("userInfo").style.display="none";
-  }
-}
+document.getElementById("postBtn").addEventListener("click", async ()=>{
+  const text = document.getElementById("postText").value.trim();
+  if(!text){alert("Enter a post"); return;}
+  try {
+    await addDoc(collection(db,"posts"),{
+      text,
+      authorName: currentUser.displayName || currentUser.email,
+      authorId: currentUser.uid,
+      likes: [],
+      timestamp: serverTimestamp()
+    });
+    document.getElementById("postText").value = "";
+  } catch(e){alert(e);}
+});
 
-onAuthStateChanged(auth,user=>{currentUser=user; loginUI();});
-
-// Posts
-const postsCol = collection(db,"posts");
-const postsQuery = query(postsCol, orderBy("timestamp","desc"));
-
-onSnapshot(postsQuery, snapshot=>{
+// Load posts in real-time
+onSnapshot(collection(db,"posts"), snapshot=>{
   feed.innerHTML="";
-  snapshot.docs.forEach(docSnap=>{
-    const data = docSnap.data();
-    const postDiv = document.createElement("div");
-    postDiv.className="post";
-    postDiv.innerHTML=`<div class="meta"><strong>${data.authorName}</strong></div>
-      <div>${data.text}</div>
-      <div class="actions">
-        <button class="btn" data-id="${docSnap.id}" data-type="like">Like (${data.likes?.length||0})</button>
-      </div>`;
-    feed.appendChild(postDiv);
-  });
-  document.querySelectorAll("[data-type='like']").forEach(btn=>{
-    btn.onclick=async()=>{
-      if(!currentUser) return;
+  snapshot.docs
+    .sort((a,b)=>b.data().timestamp?.toMillis() - a.data().timestamp?.toMillis())
+    .forEach(docSnap=>{
+      const data = docSnap.data();
+      const liked = data.likes?.includes(currentUser?.uid);
+      const postDiv = document.createElement("div");
+      postDiv.className="post";
+      postDiv.innerHTML=`
+        <div class="meta"><img class="profile-pic" src="${currentUser?.photoURL||'https://via.placeholder.com/32'}"> <strong>${data.authorName}</strong></div>
+        <div>${data.text}</div>
+        <div class="actions">
+          <button class="btn" data-id="${docSnap.id}" data-liked="${liked}">${liked?'❤️':'🤍'} ${data.likes?.length||0}</button>
+        </div>`;
+      feed.appendChild(postDiv);
+    });
+  document.querySelectorAll(".actions button").forEach(btn=>{
+    btn.onclick = async ()=>{
       const postRef = doc(db,"posts",btn.dataset.id);
-      try{ await updateDoc(postRef,{likes: arrayUnion(currentUser.uid)}); }catch(e){console.error(e); alert("Failed to like post.");}
+      const liked = btn.dataset.liked === "true";
+      if(liked){
+        await updateDoc(postRef,{likes: arrayRemove(currentUser.uid)});
+      } else {
+        await updateDoc(postRef,{likes: arrayUnion(currentUser.uid)});
+      }
     };
   });
 });
 
-document.getElementById("postBtn").addEventListener("click", async()=>{
-  const text = document.getElementById("postText").value.trim();
-  if(!text||!currentUser) return;
-  try{
-    await addDoc(collection(db,"posts"),{
-      text,
-      authorName: currentUser.displayName||currentUser.email,
-      likes: [],
-      timestamp: serverTimestamp()
-    });
-    document.getElementById("postText").value="";
-  }catch(e){console.error(e); alert("Failed to post.");}
+onAuthStateChanged(auth,user=>{
+  currentUser = user;
+  updateUI();
 });
-
 </script>
+
 </body>
 </html>
