@@ -24,6 +24,11 @@ body{
 <div class="card">
   <img id="pic" width="80"><br><br>
   <h2 id="name"></h2>
+  <div id="followSection" style="margin-top:10px;">
+  <button id="followBtn">Follow</button>
+  <p id="followStats"></p>
+</div>
+
 
   <div id="editor" style="display:none;">
     <input id="newName" placeholder="New username"><br><br>
@@ -35,6 +40,10 @@ body{
 <div id="posts"></div>
 
 <script type="module">
+import {
+  addDoc, deleteDoc, getDocs, doc,
+  collection, query, where
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getFirestore, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
@@ -97,6 +106,59 @@ onAuthStateChanged(auth,user=>{
      location.reload();
    };
  }
+});
+
+const followBtn = document.getElementById("followBtn");
+const followStats = document.getElementById("followStats");
+
+onAuthStateChanged(auth, async user => {
+  if (!uid || !user || uid === user.uid) {
+    followBtn.style.display = "none";
+    return;
+  }
+
+  const followsRef = collection(db, "follows");
+
+  async function updateStats() {
+    const followersSnap = await getDocs(query(followsRef, where("following", "==", uid)));
+    const followingSnap = await getDocs(query(followsRef, where("follower", "==", uid)));
+
+    followStats.textContent =
+      followersSnap.size + " followers • " + followingSnap.size + " following";
+  }
+
+  async function checkFollow() {
+    const snap = await getDocs(query(
+      followsRef,
+      where("follower", "==", user.uid),
+      where("following", "==", uid)
+    ));
+
+    if (snap.empty) {
+      followBtn.textContent = "Follow";
+      followBtn.dataset.following = "false";
+    } else {
+      followBtn.textContent = "Unfollow";
+      followBtn.dataset.following = "true";
+      followBtn.dataset.docId = snap.docs[0].id;
+    }
+  }
+
+  followBtn.onclick = async () => {
+    if (followBtn.dataset.following === "true") {
+      await deleteDoc(doc(db, "follows", followBtn.dataset.docId));
+    } else {
+      await addDoc(followsRef, {
+        follower: user.uid,
+        following: uid
+      });
+    }
+    await checkFollow();
+    await updateStats();
+  };
+
+  await checkFollow();
+  await updateStats();
 });
 </script>
 
