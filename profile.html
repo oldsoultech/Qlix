@@ -1,74 +1,59 @@
+```html
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Profile Editor</title>
+<title>Profile — Qlix 2</title>
 <style>
-  body {
-    font-family: 'Comfortaa', sans-serif;
-    background: #a0d8f1;
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-  }
-  #editor {
-    background: #4da6ff;
-    padding: 30px;
-    border-radius: 20px;
-    text-align: center;
-    width: 300px;
-  }
-  input[type="text"], input[type="email"] {
-    width: 90%;
-    padding: 5px;
-    margin: 10px 0;
-    border-radius: 5px;
-    border: none;
-  }
-  button {
-    padding: 10px 20px;
-    border-radius: 10px;
-    border: none;
-    background: #ff7f50;
-    color: white;
-    cursor: pointer;
-    font-weight: bold;
-  }
+body{
+  font-family:sans-serif;
+  background:#547538;
+  margin:0;
+}
+
+.profile{
+  padding:20px;
+}
+
+.post{
+  background:rgba(255,255,255,0.2);
+  margin:10px;
+  padding:10px;
+  border-radius:10px;
+}
 </style>
 </head>
 <body>
-<div id="editor">
-  <h2>Edit Your Profile</h2>
-  <input type="text" id="edit-username" placeholder="Username"><br>
-  <input type="email" id="edit-email" placeholder="Email"><br>
-  <button id="save-profile">Save Profile</button>
+
+<div class="profile">
+  <img id="pic" width="80">
+  <h2 id="name"></h2>
 </div>
 
-<script>
-  // User object: stores username and email
-  let currentUser = {
-    username: "",
-    email: ""
-  };
+<div id="posts"></div>
 
-  // References to input fields
-  const usernameInput = document.getElementById("edit-username");
-  const emailInput = document.getElementById("edit-email");
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-  // Pre-fill inputs with current values
-  usernameInput.value = currentUser.username;
-  emailInput.value = currentUser.email;
+const app=initializeApp({
+ apiKey:"AIzaSyDP0yDxmCrcIXK_DkdXJZB_XzPRVPXMCyo",
+ authDomain:"qlix-2701b.firebaseapp.com",
+ projectId:"qlix-2701b"
+});
 
-  // Save button updates the user object
-  document.getElementById("save-profile").addEventListener("click", () => {
-    currentUser.username = usernameInput.value; // Updates username
-    currentUser.email = emailInput.value;       // Updates email
-    alert("Profile updated! 🎉");               // Confirmation
-    console.log(currentUser);                  // For debugging
-  });
-</script>
-</body>
-</html>
+const db=getFirestore(app);
+
+const params=new URLSearchParams(location.search);
+const uid=params.get("uid");
+
+const postsQuery=query(collection(db,"posts"),where("authorId","==",uid));
+
+onSnapshot(postsQuery,snap=>{
+ posts.innerHTML="";
+
+ snap.docs.forEach(d=>{
+   const data=d.data();
+
+   name.textContent=data.authorName;
+   pic.src=data.authorP
+```
