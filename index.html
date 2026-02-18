@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Qlix 2 (ALPHA)</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap" rel="stylesheet">
 
 <style>
-:root {
+:root{
   --panel: rgba(255,255,255,0.15);
-  --radius: 16px;
-  --shadow: 0 8px 24px rgba(0,0,0,0.35);
+  --radius:16px;
+  --shadow:0 8px 24px rgba(0,0,0,0.35);
 }
 
 body{
@@ -24,13 +24,18 @@ body{
 .topbar{
   position:sticky;
   top:0;
+  backdrop-filter:blur(10px);
   background:black;
   padding:10px 16px;
   display:flex;
   align-items:center;
+  gap:10px;
 }
 
-.logo{color:white;font-weight:700;}
+.logo{
+  font-weight:800;
+  color:white;
+}
 
 .wrap{
   display:grid;
@@ -41,12 +46,14 @@ body{
   padding:0 16px;
 }
 
-.card,.post{
+.card,.composer,.post{
   background:var(--panel);
   padding:14px;
   border-radius:var(--radius);
   box-shadow:var(--shadow);
 }
+
+.feed{display:grid;gap:12px;}
 
 .profile-pic{
   width:32px;
@@ -57,9 +64,25 @@ body{
 
 .btn{
   padding:8px 12px;
-  border:none;
   border-radius:12px;
+  border:none;
   cursor:pointer;
+  font-family:inherit;
+}
+
+.primary{
+  background:white;
+  color:#547538;
+  font-weight:700;
+}
+
+textarea{
+  width:100%;
+  min-height:70px;
+  padding:10px;
+  border-radius:12px;
+  border:none;
+  background:rgba(255,255,255,0.8);
 }
 
 a{color:inherit;text-decoration:none;}
@@ -68,9 +91,12 @@ a{color:inherit;text-decoration:none;}
 <body>
 
 <header class="topbar">
-  <div class="logo">Qlix 2</div>
-  <button id="googleSignInBtn" class="btn" style="margin-left:auto;">Sign in with Google</button>
-  <button id="signOutBtn" class="btn" style="display:none;">Sign Out</button>
+  <div class="logo">Qlix 2 (ALPHA)</div>
+
+  <div style="margin-left:auto;">
+    <button class="btn" id="googleSignInBtn">Sign in with Google</button>
+    <button class="btn" id="signOutBtn" style="display:none;">Sign Out</button>
+  </div>
 </header>
 
 <main class="wrap">
@@ -83,12 +109,12 @@ a{color:inherit;text-decoration:none;}
   </aside>
 
   <section>
-    <div class="card" id="composer" style="display:none;">
-      <textarea id="postText" placeholder="What's on your mind?" style="width:100%;"></textarea>
-      <button id="postBtn" class="btn">Post</button>
+    <div class="card composer" id="composer" style="display:none;">
+      <textarea id="postText" placeholder="What's on your mind?"></textarea>
+      <button class="btn primary" id="postBtn">Post</button>
     </div>
 
-    <div id="feed"></div>
+    <div class="feed" id="feed"></div>
   </section>
 
 </main>
@@ -120,75 +146,80 @@ googleBtn.onclick=()=>signInWithPopup(auth,provider);
 signOutBtn.onclick=()=>signOut(auth);
 
 onAuthStateChanged(auth,user=>{
- currentUser=user;
+  currentUser=user;
 
- if(user){
-   googleBtn.style.display="none";
-   signOutBtn.style.display="block";
-   composer.style.display="block";
- }else{
-   googleBtn.style.display="block";
-   signOutBtn.style.display="none";
-   composer.style.display="none";
- }
+  if(user){
+    googleBtn.style.display="none";
+    signOutBtn.style.display="inline-block";
+    composer.style.display="block";
+
+    userInfo.style.display="block";
+    userPic.src=user.photoURL;
+    userName.textContent=user.displayName;
+  }else{
+    googleBtn.style.display="inline-block";
+    signOutBtn.style.display="none";
+    composer.style.display="none";
+    userInfo.style.display="none";
+  }
 });
 
 postBtn.onclick=async()=>{
- const text=postText.value.trim();
- if(!text) return;
+  const text=postText.value.trim();
+  if(!text) return;
 
- await addDoc(collection(db,"posts"),{
-   text,
-   authorName: currentUser.displayName,
-   authorId: currentUser.uid,
-   authorPic: currentUser.photoURL,
-   likes: [],
-   timestamp: serverTimestamp()
- });
+  await addDoc(collection(db,"posts"),{
+    text,
+    authorName:currentUser.displayName,
+    authorId:currentUser.uid,
+    authorPic:currentUser.photoURL,
+    likes:[],
+    timestamp:serverTimestamp()
+  });
 
- postText.value="";
+  postText.value="";
 };
 
 onSnapshot(collection(db,"posts"), snapshot=>{
- feed.innerHTML="";
+  feed.innerHTML="";
 
- snapshot.docs
-  .sort((a,b)=>b.data().timestamp?.toMillis()-a.data().timestamp?.toMillis())
-  .forEach(docSnap=>{
-   const data=docSnap.data();
-   const liked=data.likes?.includes(currentUser?.uid);
+  snapshot.docs
+    .sort((a,b)=>b.data().timestamp?.toMillis()-a.data().timestamp?.toMillis())
+    .forEach(docSnap=>{
+      const data=docSnap.data();
+      const liked=data.likes?.includes(currentUser?.uid);
 
-   const postDiv=document.createElement("div");
-   postDiv.className="post";
+      const div=document.createElement("div");
+      div.className="post";
 
-   postDiv.innerHTML=`
-     <div style="display:flex;gap:8px;align-items:center;">
-       <img class="profile-pic" src="${data.authorPic}">
-       <a href="profile.html?uid=${data.authorId}">
-         <strong>${data.authorName}</strong>
-       </a>
-     </div>
-     <p>${data.text}</p>
-     <button data-id="${docSnap.id}" data-liked="${liked}">
-       ${liked?'❤️':'🤍'} ${data.likes?.length||0}
-     </button>
-   `;
+      div.innerHTML=`
+        <div style="display:flex;gap:10px;align-items:center;">
+          <img class="profile-pic" src="${data.authorPic}">
+          <a href="profile.html?uid=${data.authorId}">
+            <strong>${data.authorName}</strong>
+          </a>
+        </div>
+        <p>${data.text}</p>
+        <button data-id="${docSnap.id}" data-liked="${liked}">
+          ${liked?'❤️':'🤍'} ${data.likes?.length||0}
+        </button>
+      `;
 
-   feed.appendChild(postDiv);
- });
+      feed.appendChild(div);
+    });
 
- document.querySelectorAll("button[data-id]").forEach(btn=>{
-   btn.onclick=async()=>{
-     const ref=doc(db,"posts",btn.dataset.id);
-     const liked=btn.dataset.liked==="true";
+  document.querySelectorAll("button[data-id]").forEach(btn=>{
+    btn.onclick=async()=>{
+      const ref=doc(db,"posts",btn.dataset.id);
+      const liked=btn.dataset.liked==="true";
 
-     if(liked){
-       await updateDoc(ref,{likes:arrayRemove(currentUser.uid)});
-     }else{
-       await updateDoc(ref,{likes:arrayUnion(currentUser.uid)});
-     }
-   };
- });
+      if(liked){
+        await updateDoc(ref,{likes:arrayRemove(currentUser.uid)});
+      }else{
+        await updateDoc(ref,{likes:arrayUnion(currentUser.uid)});
+      }
+    };
+  });
 });
 </script>
 
