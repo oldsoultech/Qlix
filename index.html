@@ -14,21 +14,15 @@ body{ margin:0; font-family:'Comfortaa',sans-serif; background:#547538; color:bl
 @media(max-width:640px){ .wrap{ grid-template-columns:1fr; } }
 .card,.composer,.post{ background:var(--panel); padding:14px; border-radius:var(--radius); box-shadow:var(--shadow); }
 .feed{ display:grid; gap:12px; }
-.profile-pic{ width:32px; height:32px; border-radius:50%; object-fit:cover; background:#ccc; }
-.profile-pic-sm{ width:24px; height:24px; border-radius:50%; object-fit:cover; background:#ccc; }
+.profile-pic{ width:32px; height:32px; border-radius:50%; object-fit:cover; background:#ccc; cursor:pointer; }
 .btn{ padding:8px 12px; border-radius:12px; border:none; cursor:pointer; font-family:inherit; }
 .btn-sm{ padding:4px 8px; border-radius:8px; font-size:11px; }
 .primary{ background:white; color:#547538; font-weight:700; }
 textarea,input[type="text"]{ width:100%; box-sizing:border-box; padding:10px; border-radius:12px; border:none; background:rgba(255,255,255,0.8); font-family:inherit; }
 textarea{ min-height:70px; margin-bottom:8px; }
 .user-card{ display:flex; flex-direction:column; gap:10px; align-items:center; text-align:center; }
-
-.comments-section{ margin-top:12px; padding-top:10px; border-top:1px solid rgba(0,0,0,0.1); }
-.comments-list{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
-.comment-item{ background:rgba(255,255,255,0.4); padding:8px 12px; border-radius:10px; font-size:13px; }
-.comment-header{ display:flex; align-items:center; gap:6px; margin-bottom:4px; }
-.comment-input-box{ display:flex; gap:8px; margin-top:8px; }
-.comment-input-box input{ padding:6px 10px; font-size:13px; }
+.author-link{ display:flex; gap:10px; align-items:center; cursor:pointer; }
+.author-link:hover strong{ text-decoration:underline; }
 
 /* DM Drawer Overlay Styles */
 .dm-drawer {
@@ -51,6 +45,40 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .dm-bubble { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.3; }
 .dm-bubble.sent { align-self: flex-end; background: #547538; color: white; }
 .dm-bubble.received { align-self: flex-start; background: #e0e0e0; color: black; }
+
+/* Profile Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+}
+.modal-overlay.open { display: flex; }
+.profile-modal {
+  background: white;
+  padding: 24px;
+  border-radius: var(--radius);
+  width: 90%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  position: relative;
+}
+.profile-modal .close-modal {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+}
 </style>
 </head>
 <body>
@@ -80,6 +108,17 @@ textarea{ min-height:70px; margin-bottom:8px; }
   </section>
 </main>
 
+<!-- User Profile Modal -->
+<div class="modal-overlay" id="profileModal">
+  <div class="profile-modal">
+    <button class="close-modal" id="closeProfileModal">✕</button>
+    <img id="modalProfilePic" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; background: #ccc;">
+    <h3 id="modalProfileName" style="margin: 0;">User Name</h3>
+    <p id="modalProfileSub" style="margin: 0; opacity: 0.6; font-size: 12px;">Qlix Member</p>
+    <button class="btn primary" id="modalMessageBtn" style="width: 100%; margin-top: 10px;">✉ Send Message</button>
+  </div>
+</div>
+
 <!-- In-Page DM Drawer -->
 <div class="dm-drawer" id="dmDrawer">
   <div class="dm-header">
@@ -96,7 +135,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, doc, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDP0yDxmCrcIXK_DkdXJZB_XzPRVPXMCyo",
@@ -112,6 +151,7 @@ const provider = new GoogleAuthProvider();
 let currentUser = null;
 let activeChatUserId = null;
 let dmUnsubscribe = null;
+let currentProfileTarget = null;
 
 // Auth
 document.getElementById("googleSignInBtn").onclick = () => signInWithPopup(auth, provider);
@@ -130,6 +170,33 @@ onAuthStateChanged(auth, user => {
   fetchFeed();
 });
 
+// Profile Modal Handler
+function openUserProfile(authorId, authorName, authorPic) {
+  currentProfileTarget = { id: authorId, name: authorName, pic: authorPic };
+  
+  document.getElementById("modalProfilePic").src = authorPic || "https://via.placeholder.com/80";
+  document.getElementById("modalProfileName").textContent = authorName;
+  
+  const msgBtn = document.getElementById("modalMessageBtn");
+  if (currentUser && currentUser.uid === authorId) {
+    msgBtn.style.display = "none"; // Can't message yourself
+  } else {
+    msgBtn.style.display = "block";
+  }
+
+  document.getElementById("profileModal").classList.add("open");
+}
+
+document.getElementById("closeProfileModal").onclick = () => {
+  document.getElementById("profileModal").classList.remove("open");
+};
+
+document.getElementById("modalMessageBtn").onclick = () => {
+  if (!currentProfileTarget) return;
+  document.getElementById("profileModal").classList.remove("open");
+  openChat(currentProfileTarget.id, currentProfileTarget.name);
+};
+
 // DM Functions
 function openChat(targetUserId, targetUserName) {
   if (!currentUser) return alert("Please sign in to message users.");
@@ -141,7 +208,6 @@ function openChat(targetUserId, targetUserName) {
 
   if (dmUnsubscribe) dmUnsubscribe();
 
-  // Listen to real-time messages between the two users
   const q = query(
     collection(db, "direct_messages"),
     where("participants", "array-contains", currentUser.uid)
@@ -194,7 +260,7 @@ document.getElementById("sendDmBtn").onclick = async () => {
   input.value = "";
 };
 
-// Feed & Comments
+// Feed & Posts
 async function fetchFeed() {
   const feed = document.getElementById("feed");
   const snapshot = await getDocs(collection(db, "posts"));
@@ -207,20 +273,16 @@ async function fetchFeed() {
     const div = document.createElement("div");
     div.className = "post";
     div.innerHTML = `
-      <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
-        <div style="display:flex; gap:10px; align-items:center;">
-          <img class="profile-pic" src="${data.authorPic || 'https://via.placeholder.com/32'}">
-          <strong>${data.authorName}</strong>
-        </div>
-        ${currentUser && data.authorId !== currentUser.uid ? `<button class="btn btn-sm dm-btn">✉️️ Message</button>` : ''}
+      <div class="author-link">
+        <img class="profile-pic" src="${data.authorPic || 'https://via.placeholder.com/32'}">
+        <strong>${data.authorName}</strong>
       </div>
       <p>${data.text}</p>
     `;
 
-    const dmBtn = div.querySelector(".dm-btn");
-    if (dmBtn) {
-      dmBtn.onclick = () => openChat(data.authorId, data.authorName);
-    }
+    // Click author name/pic to open profile
+    const authorLink = div.querySelector(".author-link");
+    authorLink.onclick = () => openUserProfile(data.authorId, data.authorName, data.authorPic);
 
     feed.appendChild(div);
   });
