@@ -18,7 +18,7 @@ body{ margin:0; font-family:'Comfortaa',sans-serif; background:#547538; color:bl
 .btn{ padding:8px 12px; border-radius:12px; border:none; cursor:pointer; font-family:inherit; position:relative; }
 .btn-sm{ padding:4px 8px; border-radius:8px; font-size:11px; }
 .primary{ background:white; color:#547538; font-weight:700; }
-textarea,input[type="text"],input[type="file"]{ width:100%; box-sizing:border-box; padding:10px; border-radius:12px; border:none; background:rgba(255,255,255,0.8); font-family:inherit; }
+textarea,input[type="text"]{ width:100%; box-sizing:border-box; padding:10px; border-radius:12px; border:none; background:rgba(255,255,255,0.8); font-family:inherit; }
 textarea{ min-height:70px; margin-bottom:8px; }
 .user-card{ display:flex; flex-direction:column; gap:10px; align-items:center; text-align:center; }
 .author-link{ display:flex; gap:10px; align-items:center; cursor:pointer; }
@@ -143,8 +143,8 @@ textarea{ min-height:70px; margin-bottom:8px; }
 
       <!-- Edit Profile Form -->
       <div class="edit-form" id="editForm">
-        <label>Upload Profile Picture</label>
-        <input type="file" id="editAvatarFile" accept="image/*">
+        <label>Profile Picture URL</label>
+        <input type="text" id="editAvatarInput" placeholder="https://example.com/avatar.jpg">
 
         <label>Display Name</label>
         <input type="text" id="editNameInput">
@@ -179,7 +179,6 @@ textarea{ min-height:70px; margin-bottom:8px; }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDP0yDxmCrcIXK_DkdXJZB_XzPRVPXMCyo",
@@ -191,14 +190,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 let currentUser = null;
 let activeChatUserId = null;
 let dmUnsubscribe = null;
 let notifUnsubscribe = null;
-let currentProfileTarget = null;
 
 // Auth
 document.getElementById("googleSignInBtn").onclick = () => signInWithPopup(auth, provider);
@@ -213,7 +210,6 @@ onAuthStateChanged(auth, async user => {
   document.getElementById("userInfo").style.display = user ? "flex" : "none";
   
   if (user) {
-    // Fetch latest user data from Firestore
     const userRef = doc(db, "users", user.uid);
     const snap = await getDoc(userRef);
     let photoURL = user.photoURL;
@@ -233,7 +229,6 @@ onAuthStateChanged(auth, async user => {
     document.getElementById("userPic").src = photoURL || "https://via.placeholder.com/64";
     document.getElementById("userName").textContent = user.displayName || user.email;
 
-    // Listen for direct messages / notifications
     listenForNotifications();
   } else {
     if (notifUnsubscribe) notifUnsubscribe();
@@ -247,8 +242,6 @@ document.getElementById("viewMyProfileBtn").onclick = () => {
 
 // Profile Modal & Edit Handlers
 async function openUserProfile(authorId, authorName, authorPic) {
-  currentProfileTarget = { id: authorId, name: authorName, pic: authorPic };
-  
   document.getElementById("editForm").style.display = "none";
   document.getElementById("toggleEditBtn").textContent = "Edit Profile";
   document.getElementById("uploadStatus").textContent = "";
@@ -280,6 +273,7 @@ async function openUserProfile(authorId, authorName, authorPic) {
     msgBtn.style.display = "none";
     editBtn.style.display = "block";
     
+    document.getElementById("editAvatarInput").value = userData.photoURL || authorPic || "";
     document.getElementById("editNameInput").value = name;
     document.getElementById("editBioInput").value = userData.bio || "";
     document.getElementById("editHeaderInput").value = headerUrl;
@@ -302,7 +296,7 @@ document.getElementById("toggleEditBtn").onclick = () => {
   document.getElementById("toggleEditBtn").textContent = isHidden ? "Cancel Editing" : "Edit Profile";
 };
 
-// Save Profile with File Upload
+// Save Profile via Text URL
 document.getElementById("saveProfileBtn").onclick = async () => {
   if (!currentUser) return;
   
@@ -310,23 +304,9 @@ document.getElementById("saveProfileBtn").onclick = async () => {
   const statusEl = document.getElementById("uploadStatus");
   saveBtn.disabled = true;
   saveBtn.textContent = "Saving...";
-  statusEl.className = "status-msg";
-  statusEl.textContent = "Updating profile...";
 
   try {
-    let photoURL = currentUser.photoURL || "";
-    const fileInput = document.getElementById("editAvatarFile");
-    
-    // Handle file upload to Firebase Storage
-    if (fileInput.files.length > 0) {
-      const file = fileInput.files[0];
-      statusEl.textContent = "Uploading image...";
-      const storageRef = ref(storage, `avatars/${currentUser.uid}`);
-      
-      await uploadBytes(storageRef, file);
-      photoURL = await getDownloadURL(storageRef);
-    }
-
+    const photoURL = document.getElementById("editAvatarInput").value.trim();
     const newName = document.getElementById("editNameInput").value.trim();
     const newBio = document.getElementById("editBioInput").value.trim();
     const newHeader = document.getElementById("editHeaderInput").value.trim();
@@ -345,22 +325,21 @@ document.getElementById("saveProfileBtn").onclick = async () => {
       photoURL: photoURL 
     });
 
-    document.getElementById("userPic").src = photoURL;
+    document.getElementById("userPic").src = photoURL || "https://via.placeholder.com/64";
     document.getElementById("userName").textContent = newName || currentUser.email;
 
     statusEl.className = "status-msg success";
-    statusEl.textContent = "Profile saved successfully!";
-    fileInput.value = "";
+    statusEl.textContent = "Profile updated!";
 
     setTimeout(() => {
       openUserProfile(currentUser.uid, newName || currentUser.email, photoURL);
       fetchFeed();
-    }, 800);
+    }, 600);
 
   } catch (err) {
     console.error("Profile save error:", err);
     statusEl.className = "status-msg error";
-    statusEl.textContent = "Error saving profile. Check console or Storage rules.";
+    statusEl.textContent = "Error saving profile.";
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = "Save Changes";
@@ -403,7 +382,7 @@ function listenForNotifications() {
   });
 }
 
-// Open Notifications Panel (DM Conversations List)
+// Open Notifications Panel
 document.getElementById("notifBtn").onclick = async () => {
   if (!currentUser) return;
 
@@ -534,7 +513,6 @@ async function fetchFeed() {
     let pic = data.authorPic || "https://via.placeholder.com/32";
     let name = data.authorName;
 
-    // Fetch user profile data to stay up-to-date
     if (data.authorId) {
       const uSnap = await getDoc(doc(db, "users", data.authorId));
       if (uSnap.exists()) {
