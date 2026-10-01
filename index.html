@@ -18,7 +18,7 @@ body{ margin:0; font-family:'Comfortaa',sans-serif; background:#547538; color:bl
 .btn{ padding:8px 12px; border-radius:12px; border:none; cursor:pointer; font-family:inherit; }
 .btn-sm{ padding:4px 8px; border-radius:8px; font-size:11px; }
 .primary{ background:white; color:#547538; font-weight:700; }
-textarea,input[type="text"]{ width:100%; box-sizing:border-box; padding:10px; border-radius:12px; border:none; background:rgba(255,255,255,0.8); font-family:inherit; }
+textarea,input[type="text"],input[type="file"]{ width:100%; box-sizing:border-box; padding:10px; border-radius:12px; border:none; background:rgba(255,255,255,0.8); font-family:inherit; }
 textarea{ min-height:70px; margin-bottom:8px; }
 .user-card{ display:flex; flex-direction:column; gap:10px; align-items:center; text-align:center; }
 .author-link{ display:flex; gap:10px; align-items:center; cursor:pointer; }
@@ -121,6 +121,9 @@ textarea{ min-height:70px; margin-bottom:8px; }
 
       <!-- Edit Profile Form -->
       <div class="edit-form" id="editForm">
+        <label>Upload Profile Picture</label>
+        <input type="file" id="editAvatarFile" accept="image/*">
+
         <label>Display Name</label>
         <input type="text" id="editNameInput">
 
@@ -153,16 +156,19 @@ textarea{ min-height:70px; margin-bottom:8px; }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDP0yDxmCrcIXK_DkdXJZB_XzPRVPXMCyo",
   authDomain: "qlix-2701b.firebaseapp.com",
-  projectId: "qlix-2701b"
+  projectId: "qlix-2701b",
+  storageBucket: "qlix-2701b.appspot.com"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 let currentUser = null;
@@ -185,7 +191,6 @@ onAuthStateChanged(auth, async user => {
     document.getElementById("userPic").src = user.photoURL || "https://via.placeholder.com/64";
     document.getElementById("userName").textContent = user.displayName || user.email;
     
-    // Ensure user record exists in 'users' collection
     const userRef = doc(db, "users", user.uid);
     const snap = await getDoc(userRef);
     if (!snap.exists()) {
@@ -208,11 +213,9 @@ document.getElementById("viewMyProfileBtn").onclick = () => {
 async function openUserProfile(authorId, authorName, authorPic) {
   currentProfileTarget = { id: authorId, name: authorName, pic: authorPic };
   
-  // Reset modal state
   document.getElementById("editForm").style.display = "none";
   document.getElementById("toggleEditBtn").textContent = "Edit Profile";
   
-  // Load data from Firestore 'users' doc
   const userSnap = await getDoc(doc(db, "users", authorId));
   const userData = userSnap.exists() ? userSnap.data() : {};
 
@@ -235,7 +238,6 @@ async function openUserProfile(authorId, authorName, authorPic) {
     msgBtn.style.display = "none";
     editBtn.style.display = "block";
     
-    // Populate edit fields
     document.getElementById("editNameInput").value = name;
     document.getElementById("editBioInput").value = userData.bio || "";
     document.getElementById("editHeaderInput").value = headerUrl;
@@ -258,31 +260,50 @@ document.getElementById("toggleEditBtn").onclick = () => {
   document.getElementById("toggleEditBtn").textContent = isHidden ? "Cancel Editing" : "Edit Profile";
 };
 
+// Save Profile with File Upload
 document.getElementById("saveProfileBtn").onclick = async () => {
   if (!currentUser) return;
+  const saveBtn = document.getElementById("saveProfileBtn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Saving...";
+
+  let photoURL = currentUser.photoURL || "";
+  const fileInput = document.getElementById("editAvatarFile");
   
+  // Handle file upload to Firebase Storage
+  if (fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+    const storageRef = ref(storage, `avatars/${currentUser.uid}`);
+    await uploadBytes(storageRef, file);
+    photoURL = await getDownloadURL(storageRef);
+  }
+
   const newName = document.getElementById("editNameInput").value.trim();
   const newBio = document.getElementById("editBioInput").value.trim();
   const newHeader = document.getElementById("editHeaderInput").value.trim();
 
+  // Save profile updates to Firestore
   await setDoc(doc(db, "users", currentUser.uid), {
     displayName: newName || currentUser.email,
+    photoURL: photoURL,
     bio: newBio,
     headerUrl: newHeader
   }, { merge: true });
 
-  if (newName) {
-    await updateProfile(currentUser, { displayName: newName });
-    document.getElementById("userName").textContent = newName;
-  }
+  // Update Auth Profile
+  await updateProfile(currentUser, { 
+    displayName: newName || currentUser.email,
+    photoURL: photoURL 
+  });
 
-  openUserProfile(currentUser.uid, newName || currentUser.email, currentUser.photoURL);
-};
+  document.getElementById("userPic").src = photoURL;
+  document.getElementById("userName").textContent = newName || currentUser.email;
 
-document.getElementById("modalMessageBtn").onclick = () => {
-  if (!currentProfileTarget) return;
-  document.getElementById("profileModal").classList.remove("open");
-  openChat(currentProfileTarget.id, currentProfileTarget.name);
+  saveBtn.disabled = false;
+  saveBtn.textContent = "Save Changes";
+
+  openUserProfile(currentUser.uid, newName || currentUser.email, photoURL);
+  fetchFeed();
 };
 
 // DM Functions
