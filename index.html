@@ -38,6 +38,12 @@ body{
   color: white;
 }
 
+.refresh-status {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  margin-left: 10px;
+}
+
 .wrap{
   display: grid;
   grid-template-columns: 260px 1fr;
@@ -144,6 +150,7 @@ textarea {
 
 <header class="topbar">
   <div class="logo">Qlix 2 (ALPHA)</div>
+  <span class="refresh-status" id="refreshTimer">Auto-refresh: 15s</span>
 
   <div style="margin-left:auto; display:flex; gap:8px;">
     <button class="btn" id="emailAuthModalBtn">Sign In / Up with Email</button>
@@ -232,7 +239,7 @@ import {
   getFirestore, 
   collection, 
   addDoc, 
-  onSnapshot, 
+  getDocs, 
   doc, 
   updateDoc, 
   arrayUnion, 
@@ -253,6 +260,7 @@ const provider = new GoogleAuthProvider();
 
 let currentUser = null;
 let isSignUpMode = false;
+let countdown = 15;
 
 // Element References
 const googleBtn = document.getElementById("googleSignInBtn");
@@ -265,6 +273,7 @@ const userPic = document.getElementById("userPic");
 const userName = document.getElementById("userName");
 const postBtn = document.getElementById("postBtn");
 const postText = document.getElementById("postText");
+const refreshTimer = document.getElementById("refreshTimer");
 
 // Email Auth Modal Elements
 const authModal = document.getElementById("authModal");
@@ -423,72 +432,96 @@ postBtn.onclick = async () => {
     });
 
     postText.value = "";
+    fetchFeed(); // Refresh immediately on post creation
   } catch (err) {
     console.error("Error adding post: ", err);
   }
 };
 
-// Real-Time Feed Handler
-onSnapshot(collection(db, "posts"), snapshot => {
-  feed.innerHTML = "";
+// Fetch Feed Function
+async function fetchFeed() {
+  try {
+    const snapshot = await getDocs(collection(db, "posts"));
+    feed.innerHTML = "";
 
-  const docs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+    const docs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
 
-  docs.sort((a, b) => {
-    const timeA = a.timestamp ? a.timestamp.toMillis() : Date.now();
-    const timeB = b.timestamp ? b.timestamp.toMillis() : Date.now();
-    return timeB - timeA;
-  });
+    docs.sort((a, b) => {
+      const timeA = a.timestamp ? a.timestamp.toMillis() : Date.now();
+      const timeB = b.timestamp ? b.timestamp.toMillis() : Date.now();
+      return timeB - timeA;
+    });
 
-  docs.forEach(data => {
-    const liked = currentUser ? data.likes?.includes(currentUser.uid) : false;
+    docs.forEach(data => {
+      const liked = currentUser ? data.likes?.includes(currentUser.uid) : false;
 
-    const div = document.createElement("div");
-    div.className = "post";
+      const div = document.createElement("div");
+      div.className = "post";
 
-    const header = document.createElement("div");
-    header.style.display = "flex";
-    header.style.gap = "10px";
-    header.style.alignItems = "center";
+      const header = document.createElement("div");
+      header.style.display = "flex";
+      header.style.gap = "10px";
+      header.style.alignItems = "center";
 
-    const pic = document.createElement("img");
-    pic.className = "profile-pic";
-    pic.src = data.authorPic || "https://via.placeholder.com/32";
+      const pic = document.createElement("img");
+      pic.className = "profile-pic";
+      pic.src = data.authorPic || "https://via.placeholder.com/32";
 
-    const name = document.createElement("strong");
-    name.textContent = data.authorName;
+      const name = document.createElement("strong");
+      name.textContent = data.authorName;
 
-    header.appendChild(pic);
-    header.appendChild(name);
+      header.appendChild(pic);
+      header.appendChild(name);
 
-    const content = document.createElement("p");
-    content.textContent = data.text;
+      const content = document.createElement("p");
+      content.textContent = data.text;
 
-    const likeBtn = document.createElement("button");
-    likeBtn.className = "btn";
-    likeBtn.innerHTML = `${liked ? '❤️' : '🤍'} ${data.likes?.length || 0}`;
+      const likeBtn = document.createElement("button");
+      likeBtn.className = "btn";
+      likeBtn.innerHTML = `${liked ? '❤️' : '🤍'} ${data.likes?.length || 0}`;
 
-    likeBtn.onclick = async () => {
-      if (!currentUser) {
-        alert("Please sign in to like posts.");
-        return;
-      }
+      likeBtn.onclick = async () => {
+        if (!currentUser) {
+          alert("Please sign in to like posts.");
+          return;
+        }
 
-      const ref = doc(db, "posts", data.id);
-      if (liked) {
-        await updateDoc(ref, { likes: arrayRemove(currentUser.uid) });
-      } else {
-        await updateDoc(ref, { likes: arrayUnion(currentUser.uid) });
-      }
-    };
+        const ref = doc(db, "posts", data.id);
+        if (liked) {
+          await updateDoc(ref, { likes: arrayRemove(currentUser.uid) });
+        } else {
+          await updateDoc(ref, { likes: arrayUnion(currentUser.uid) });
+        }
+        fetchFeed(); // Refresh feed immediately after toggling like
+      };
 
-    div.appendChild(header);
-    div.appendChild(content);
-    div.appendChild(likeBtn);
+      div.appendChild(header);
+      div.appendChild(content);
+      div.appendChild(likeBtn);
 
-    feed.appendChild(div);
-  });
-});
+      feed.appendChild(div);
+    });
+
+    // Reset timer on complete
+    countdown = 15;
+  } catch (error) {
+    console.error("Error fetching feed: ", error);
+  }
+}
+
+// Initial Fetch
+fetchFeed();
+
+// 15-Second Refresh Interval & Countdown Timer
+setInterval(() => {
+  countdown--;
+  if (countdown <= 0) {
+    refreshTimer.textContent = "Refreshing...";
+    fetchFeed();
+  } else {
+    refreshTimer.textContent = `Auto-refresh: ${countdown}s`;
+  }
+}, 1000);
 </script>
 
 </body>
