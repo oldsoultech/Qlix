@@ -76,12 +76,26 @@ body{
   background: #ccc;
 }
 
+.profile-pic-sm{
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #ccc;
+}
+
 .btn{
   padding: 8px 12px;
   border-radius: 12px;
   border: none;
   cursor: pointer;
   font-family: inherit;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
 }
 
 .primary{
@@ -143,6 +157,45 @@ textarea {
 
 .auth-tabs button {
   flex: 1;
+}
+
+/* Comments Section Styling */
+.comments-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.comment-item {
+  background: rgba(255, 255, 255, 0.4);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.comment-input-box {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.comment-input-box input {
+  padding: 6px 10px;
+  font-size: 13px;
 }
 </style>
 </head>
@@ -432,11 +485,62 @@ postBtn.onclick = async () => {
     });
 
     postText.value = "";
-    fetchFeed(); // Refresh immediately on post creation
+    fetchFeed();
   } catch (err) {
     console.error("Error adding post: ", err);
   }
 };
+
+// Fetch Comments for a Post
+async function fetchComments(postId, commentsListEl) {
+  try {
+    const commentsSnap = await getDocs(collection(db, "posts", postId, "comments"));
+    commentsListEl.innerHTML = "";
+
+    const comments = commentsSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+    
+    comments.sort((a, b) => {
+      const timeA = a.timestamp ? a.timestamp.toMillis() : Date.now();
+      const timeB = b.timestamp ? b.timestamp.toMillis() : Date.now();
+      return timeA - timeB; // Oldest first
+    });
+
+    if (comments.length === 0) {
+      commentsListEl.innerHTML = "<div style='font-size:12px; opacity:0.6;'>No comments yet.</div>";
+      return 0;
+    }
+
+    comments.forEach(c => {
+      const item = document.createElement("div");
+      item.className = "comment-item";
+
+      const header = document.createElement("div");
+      header.className = "comment-header";
+
+      const pic = document.createElement("img");
+      pic.className = "profile-pic-sm";
+      pic.src = c.authorPic || "https://via.placeholder.com/24";
+
+      const name = document.createElement("strong");
+      name.textContent = c.authorName;
+
+      header.appendChild(pic);
+      header.appendChild(name);
+
+      const body = document.createElement("div");
+      body.textContent = c.text;
+
+      item.appendChild(header);
+      item.appendChild(body);
+      commentsListEl.appendChild(item);
+    });
+
+    return comments.length;
+  } catch (err) {
+    console.error("Error loading comments: ", err);
+    return 0;
+  }
+}
 
 // Fetch Feed Function
 async function fetchFeed() {
@@ -458,6 +562,7 @@ async function fetchFeed() {
       const div = document.createElement("div");
       div.className = "post";
 
+      // Header
       const header = document.createElement("div");
       header.style.display = "flex";
       header.style.gap = "10px";
@@ -473,8 +578,14 @@ async function fetchFeed() {
       header.appendChild(pic);
       header.appendChild(name);
 
+      // Body text
       const content = document.createElement("p");
       content.textContent = data.text;
+
+      // Action Bar (Likes & Comments Toggle)
+      const actionBar = document.createElement("div");
+      actionBar.style.display = "flex";
+      actionBar.style.gap = "8px";
 
       const likeBtn = document.createElement("button");
       likeBtn.className = "btn";
@@ -492,17 +603,88 @@ async function fetchFeed() {
         } else {
           await updateDoc(ref, { likes: arrayUnion(currentUser.uid) });
         }
-        fetchFeed(); // Refresh feed immediately after toggling like
+        fetchFeed();
       };
+
+      const commentToggleBtn = document.createElement("button");
+      commentToggleBtn.className = "btn";
+      commentToggleBtn.innerHTML = `💬 Comments`;
+
+      // Comments Section Container
+      const commentsSection = document.createElement("div");
+      commentsSection.className = "comments-section";
+      commentsSection.style.display = "none";
+
+      const commentsList = document.createElement("div");
+      commentsList.className = "comments-list";
+
+      // Comment Box (Input + Button)
+      const commentInputBox = document.createElement("div");
+      commentInputBox.className = "comment-input-box";
+
+      const commentInput = document.createElement("input");
+      commentInput.type = "text";
+      commentInput.placeholder = currentUser ? "Write a comment..." : "Sign in to comment";
+      commentInput.disabled = !currentUser;
+
+      const addCommentBtn = document.createElement("button");
+      addCommentBtn.className = "btn primary btn-sm";
+      addCommentBtn.textContent = "Reply";
+      addCommentBtn.disabled = !currentUser;
+
+      addCommentBtn.onclick = async () => {
+        const text = commentInput.value.trim();
+        if (!text || !currentUser) return;
+
+        try {
+          await addDoc(collection(db, "posts", data.id, "comments"), {
+            text,
+            authorName: currentUser.displayName || currentUser.email || "Anonymous",
+            authorId: currentUser.uid,
+            authorPic: currentUser.photoURL || "https://via.placeholder.com/24",
+            timestamp: serverTimestamp()
+          });
+
+          commentInput.value = "";
+          const count = await fetchComments(data.id, commentsList);
+          commentToggleBtn.innerHTML = `💬 ${count}`;
+        } catch (err) {
+          console.error("Error posting comment: ", err);
+        }
+      };
+
+      commentInputBox.appendChild(commentInput);
+      commentInputBox.appendChild(addCommentBtn);
+
+      commentsSection.appendChild(commentInputBox);
+      commentsSection.appendChild(commentsList);
+
+      // Toggle comments visibility
+      commentToggleBtn.onclick = async () => {
+        const isHidden = commentsSection.style.display === "none";
+        commentsSection.style.display = isHidden ? "block" : "none";
+        if (isHidden) {
+          const count = await fetchComments(data.id, commentsList);
+          commentToggleBtn.innerHTML = `💬 ${count}`;
+        }
+      };
+
+      // Pre-fetch comment count for button label
+      getDocs(collection(db, "posts", data.id, "comments")).then(cSnap => {
+        commentToggleBtn.innerHTML = `💬 ${cSnap.size}`;
+      });
+
+      actionBar.appendChild(likeBtn);
+      actionBar.appendChild(commentToggleBtn);
 
       div.appendChild(header);
       div.appendChild(content);
-      div.appendChild(likeBtn);
+      div.appendChild(actionBar);
+      div.appendChild(commentsSection);
 
       feed.appendChild(div);
     });
 
-    // Reset timer on complete
     countdown = 15;
   } catch (error) {
     console.error("Error fetching feed: ", error);
