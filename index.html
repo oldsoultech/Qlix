@@ -18,7 +18,7 @@ body{ margin:0; font-family:'Comfortaa',sans-serif; background:#547538; color:bl
 .btn{ padding:8px 12px; border-radius:12px; border:none; cursor:pointer; font-family:inherit; position:relative; }
 .btn-sm{ padding:4px 8px; border-radius:8px; font-size:11px; }
 .primary{ background:white; color:#547538; font-weight:700; }
-textarea,input[type="text"]{ width:100%; box-sizing:border-box; padding:10px; border-radius:12px; border:none; background:rgba(255,255,255,0.8); font-family:inherit; }
+textarea,input[type="text"],input[type="email"],input[type="password"]{ width:100%; box-sizing:border-box; padding:10px; border-radius:12px; border:none; background:rgba(255,255,255,0.8); font-family:inherit; }
 textarea{ min-height:70px; margin-bottom:8px; }
 .user-card{ display:flex; flex-direction:column; gap:10px; align-items:center; text-align:center; }
 .author-link{ display:flex; gap:10px; align-items:center; cursor:pointer; }
@@ -29,6 +29,17 @@ textarea{ min-height:70px; margin-bottom:8px; }
   position: absolute; top: -4px; right: -4px; background: #e74c3c; color: white;
   font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 10px; display: none;
 }
+
+/* Auth Modal Styles */
+.auth-tabs { display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+.auth-tab { flex: 1; padding: 6px; border: none; background: transparent; cursor: pointer; font-family: inherit; font-weight: bold; color: #666; }
+.auth-tab.active { color: #547538; border-bottom: 2px solid #547538; }
+.auth-form { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.auth-form label { font-size: 11px; font-weight: bold; color: #444; }
+.auth-divider { display: flex; align-items: center; text-align: center; margin: 10px 0; color: #888; font-size: 12px; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; border-bottom: 1px solid #ccc; }
+.auth-divider::before { margin-right: .5em; }
+.auth-divider::after { margin-left: .5em; }
 
 /* DM & Notification Drawer Styles */
 .dm-drawer {
@@ -53,14 +64,14 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .notif-title { font-weight: bold; font-size: 12px; color: #333; }
 .notif-snippet { font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Profile Modal & Header Banner Styles */
+/* Profile & Modal Overlay Styles */
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.6); display: none; align-items: center;
   justify-content: center; z-index: 90;
 }
 .modal-overlay.open { display: flex; }
-.profile-modal {
+.profile-modal, .auth-modal {
   background: white; border-radius: var(--radius); width: 90%; max-width: 360px;
   overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.4); position: relative;
 }
@@ -74,7 +85,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
   width: 70px; height: 70px; border-radius: 50%; border: 4px solid white; object-fit: cover; background: #ccc;
 }
 .modal-body {
-  padding: 45px 20px 20px; text-align: center; display: flex; flex-direction: column; gap: 8px;
+  padding: 20px; text-align: center; display: flex; flex-direction: column; gap: 8px;
 }
 .profile-bio { font-size: 13px; color: #555; margin: 4px 0 10px; line-height: 1.4; white-space: pre-line; }
 .close-modal {
@@ -99,7 +110,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
       🔔 Direct Messages
       <span class="notif-badge" id="notifBadge">0</span>
     </button>
-    <button class="btn" id="googleSignInBtn">Sign in with Google</button>
+    <button class="btn primary" id="openAuthModalBtn">Sign In / Register</button>
     <button class="btn" id="signOutBtn" style="display:none;">Sign Out</button>
   </div>
 </header>
@@ -122,6 +133,47 @@ textarea{ min-height:70px; margin-bottom:8px; }
   </section>
 </main>
 
+<!-- Authentication Modal (Email + Google) -->
+<div class="modal-overlay" id="authModal">
+  <div class="auth-modal">
+    <button class="close-modal" id="closeAuthModal">✕</button>
+    <div class="modal-body" style="padding-top: 28px;">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabSignIn">Sign In</button>
+        <button class="auth-tab" id="tabSignUp">Register</button>
+      </div>
+
+      <!-- Email Sign In Form -->
+      <form class="auth-form" id="emailSignInForm">
+        <label>Email Address</label>
+        <input type="email" id="signInEmail" placeholder="you@example.com" required>
+        <label>Password</label>
+        <input type="password" id="signInPassword" placeholder="••••••••" required>
+        <button type="submit" class="btn primary" style="background:#547538; color:white; margin-top:6px;">Sign In with Email</button>
+      </form>
+
+      <!-- Email Sign Up Form -->
+      <form class="auth-form" id="emailSignUpForm" style="display: none;">
+        <label>Display Name</label>
+        <input type="text" id="signUpName" placeholder="John Doe" required>
+        <label>Email Address</label>
+        <input type="email" id="signUpEmail" placeholder="you@example.com" required>
+        <label>Password</label>
+        <input type="password" id="signUpPassword" placeholder="At least 6 characters" required>
+        <button type="submit" class="btn primary" style="background:#547538; color:white; margin-top:6px;">Create Account</button>
+      </form>
+
+      <div class="status-msg error" id="authErrorMsg"></div>
+
+      <div class="auth-divider">or</div>
+
+      <button class="btn" id="googleSignInBtn" style="background:#4285F4; color:white; font-weight:bold;">
+        Continue with Google
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Profile Modal -->
 <div class="modal-overlay" id="profileModal">
   <div class="profile-modal">
@@ -133,7 +185,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
       </div>
     </div>
 
-    <div class="modal-body">
+    <div class="modal-body" style="padding-top: 45px;">
       <h3 id="modalProfileName" style="margin: 0;">User Name</h3>
       <div class="profile-bio" id="modalProfileBio">No bio added yet.</div>
 
@@ -177,8 +229,13 @@ textarea{ min-height:70px; margin-bottom:8px; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { 
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword 
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { 
+  getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc, serverTimestamp, query, where, onSnapshot 
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDP0yDxmCrcIXK_DkdXJZB_XzPRVPXMCyo",
@@ -190,20 +247,91 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
+const googleProvider = new GoogleAuthProvider();
 
 let currentUser = null;
 let activeChatUserId = null;
 let dmUnsubscribe = null;
 let notifUnsubscribe = null;
 
-// Auth
-document.getElementById("googleSignInBtn").onclick = () => signInWithPopup(auth, provider);
-document.getElementById("signOutBtn").onclick = () => signOut(auth);
+// Auth Modal Controls
+const authModal = document.getElementById("authModal");
+const openAuthBtn = document.getElementById("openAuthModalBtn");
+const closeAuthBtn = document.getElementById("closeAuthModal");
+const tabSignIn = document.getElementById("tabSignIn");
+const tabSignUp = document.getElementById("tabSignUp");
+const emailSignInForm = document.getElementById("emailSignInForm");
+const emailSignUpForm = document.getElementById("emailSignUpForm");
+const authErrorMsg = document.getElementById("authErrorMsg");
 
+openAuthBtn.onclick = () => { authErrorMsg.textContent = ""; authModal.classList.add("open"); };
+closeAuthBtn.onclick = () => authModal.classList.remove("open");
+
+tabSignIn.onclick = () => {
+  tabSignIn.classList.add("active"); tabSignUp.classList.remove("active");
+  emailSignInForm.style.display = "flex"; emailSignUpForm.style.display = "none";
+  authErrorMsg.textContent = "";
+};
+
+tabSignUp.onclick = () => {
+  tabSignUp.classList.add("active"); tabSignIn.classList.remove("active");
+  emailSignUpForm.style.display = "flex"; emailSignInForm.style.display = "none";
+  authErrorMsg.textContent = "";
+};
+
+// Google Authentication
+document.getElementById("googleSignInBtn").onclick = async () => {
+  try {
+    await signInWithPopup(auth, googleProvider);
+    authModal.classList.remove("open");
+  } catch (err) {
+    authErrorMsg.textContent = err.message;
+  }
+};
+
+// Email/Password Sign In
+emailSignInForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("signInEmail").value;
+  const password = document.getElementById("signInPassword").value;
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    authModal.classList.remove("open");
+  } catch (err) {
+    authErrorMsg.textContent = err.message;
+  }
+};
+
+// Email/Password Registration
+emailSignUpForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("signUpName").value.trim();
+  const email = document.getElementById("signUpEmail").value;
+  const password = document.getElementById("signUpPassword").value;
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    await updateProfile(user, { displayName: name });
+    
+    await setDoc(doc(db, "users", user.uid), {
+      displayName: name,
+      photoURL: "",
+      bio: "",
+      headerUrl: ""
+    });
+
+    authModal.classList.remove("open");
+  } catch (err) {
+    authErrorMsg.textContent = err.message;
+  }
+};
+
+// Global Auth State Observer
 onAuthStateChanged(auth, async user => {
   currentUser = user;
-  document.getElementById("googleSignInBtn").style.display = user ? "none" : "inline-block";
+  document.getElementById("openAuthModalBtn").style.display = user ? "none" : "inline-block";
   document.getElementById("signOutBtn").style.display = user ? "inline-block" : "none";
   document.getElementById("notifBtn").style.display = user ? "inline-block" : "none";
   document.getElementById("composer").style.display = user ? "block" : "none";
@@ -235,6 +363,8 @@ onAuthStateChanged(auth, async user => {
   }
   fetchFeed();
 });
+
+document.getElementById("signOutBtn").onclick = () => signOut(auth);
 
 document.getElementById("viewMyProfileBtn").onclick = () => {
   if (currentUser) openUserProfile(currentUser.uid, currentUser.displayName || currentUser.email, currentUser.photoURL);
@@ -311,7 +441,6 @@ document.getElementById("saveProfileBtn").onclick = async () => {
     const newBio = document.getElementById("editBioInput").value.trim();
     const newHeader = document.getElementById("editHeaderInput").value.trim();
 
-    // Update Firestore user document
     await setDoc(doc(db, "users", currentUser.uid), {
       displayName: newName || currentUser.email,
       photoURL: photoURL,
@@ -319,7 +448,6 @@ document.getElementById("saveProfileBtn").onclick = async () => {
       headerUrl: newHeader
     }, { merge: true });
 
-    // Update Firebase Auth profile
     await updateProfile(currentUser, { 
       displayName: newName || currentUser.email,
       photoURL: photoURL 
