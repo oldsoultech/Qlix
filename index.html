@@ -24,19 +24,11 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .author-link{ display:flex; gap:10px; align-items:center; cursor:pointer; }
 .author-link:hover strong{ text-decoration:underline; }
 
-/* DM Drawer Overlay Styles */
+/* DM Drawer Styles */
 .dm-drawer {
-  position: fixed;
-  top: 0;
-  right: -360px;
-  width: 340px;
-  height: 100vh;
-  background: white;
-  box-shadow: -4px 0 20px rgba(0,0,0,0.3);
-  z-index: 100;
-  transition: right 0.3s ease;
-  display: flex;
-  flex-direction: column;
+  position: fixed; top: 0; right: -360px; width: 340px; height: 100vh;
+  background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.3); z-index: 100;
+  transition: right 0.3s ease; display: flex; flex-direction: column;
 }
 .dm-drawer.open { right: 0; }
 .dm-header { padding: 14px; background: #333; color: white; display: flex; justify-content: space-between; align-items: center; }
@@ -46,39 +38,38 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .dm-bubble.sent { align-self: flex-end; background: #547538; color: white; }
 .dm-bubble.received { align-self: flex-start; background: #e0e0e0; color: black; }
 
-/* Profile Modal Styles */
+/* Profile Modal & Header Banner Styles */
 .modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.6);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 90;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6); display: none; align-items: center;
+  justify-content: center; z-index: 90;
 }
 .modal-overlay.open { display: flex; }
 .profile-modal {
-  background: white;
-  padding: 24px;
-  border-radius: var(--radius);
-  width: 90%;
-  max-width: 320px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  text-align: center;
-  position: relative;
+  background: white; border-radius: var(--radius); width: 90%; max-width: 360px;
+  overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.4); position: relative;
 }
-.profile-modal .close-modal {
-  position: absolute;
-  top: 10px;
-  right: 14px;
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
+.header-banner {
+  height: 100px; background: #88a76d; background-size: cover; background-position: center; position: relative;
 }
+.profile-avatar-wrapper {
+  position: absolute; bottom: -35px; left: 50%; transform: translateX(-50%);
+}
+.profile-avatar-wrapper img {
+  width: 70px; height: 70px; border-radius: 50%; border: 4px solid white; object-fit: cover; background: #ccc;
+}
+.modal-body {
+  padding: 45px 20px 20px; text-align: center; display: flex; flex-direction: column; gap: 8px;
+}
+.profile-bio { font-size: 13px; color: #555; margin: 4px 0 10px; line-height: 1.4; white-space: pre-line; }
+.close-modal {
+  position: absolute; top: 10px; right: 12px; background: rgba(0,0,0,0.4);
+  border: none; color: white; border-radius: 50%; width: 26px; height: 26px; cursor: pointer; z-index: 2;
+}
+
+.edit-form { display: none; flex-direction: column; gap: 8px; text-align: left; margin-top: 10px; }
+.edit-form label { font-size: 11px; font-weight: bold; color: #444; }
+.edit-form input, .edit-form textarea { font-size: 12px; background: #f0f0f0; margin-bottom: 0; }
 </style>
 </head>
 <body>
@@ -96,6 +87,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
     <div class="card user-card" id="userInfo" style="display:none;">
       <img id="userPic" class="profile-pic" style="width: 64px; height: 64px;" alt="Profile Picture">
       <strong id="userName"></strong>
+      <button class="btn primary btn-sm" id="viewMyProfileBtn">View My Profile</button>
     </div>
   </aside>
 
@@ -108,18 +100,43 @@ textarea{ min-height:70px; margin-bottom:8px; }
   </section>
 </main>
 
-<!-- User Profile Modal -->
+<!-- Profile Modal -->
 <div class="modal-overlay" id="profileModal">
   <div class="profile-modal">
     <button class="close-modal" id="closeProfileModal">✕</button>
-    <img id="modalProfilePic" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; background: #ccc;">
-    <h3 id="modalProfileName" style="margin: 0;">User Name</h3>
-    <p id="modalProfileSub" style="margin: 0; opacity: 0.6; font-size: 12px;">Qlix Member</p>
-    <button class="btn primary" id="modalMessageBtn" style="width: 100%; margin-top: 10px;">✉ Send Message</button>
+    
+    <div class="header-banner" id="modalHeaderBanner">
+      <div class="profile-avatar-wrapper">
+        <img id="modalProfilePic" src="https://via.placeholder.com/70">
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <h3 id="modalProfileName" style="margin: 0;">User Name</h3>
+      <div class="profile-bio" id="modalProfileBio">No bio added yet.</div>
+
+      <!-- Actions -->
+      <button class="btn primary" id="modalMessageBtn" style="width: 100%;">✉ Send Message</button>
+      <button class="btn btn-sm" id="toggleEditBtn" style="width: 100%; display: none; background: #eee;">Edit Profile</button>
+
+      <!-- Edit Profile Form -->
+      <div class="edit-form" id="editForm">
+        <label>Display Name</label>
+        <input type="text" id="editNameInput">
+
+        <label>Bio</label>
+        <textarea id="editBioInput" placeholder="Tell us about yourself..."></textarea>
+
+        <label>Header Image URL</label>
+        <input type="text" id="editHeaderInput" placeholder="https://example.com/banner.jpg">
+
+        <button class="btn primary btn-sm" id="saveProfileBtn" style="margin-top: 6px;">Save Changes</button>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- In-Page DM Drawer -->
+<!-- DM Drawer -->
 <div class="dm-drawer" id="dmDrawer">
   <div class="dm-header">
     <span id="dmTargetName">Chat</span>
@@ -134,8 +151,8 @@ textarea{ min-height:70px; margin-bottom:8px; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDP0yDxmCrcIXK_DkdXJZB_XzPRVPXMCyo",
@@ -157,31 +174,74 @@ let currentProfileTarget = null;
 document.getElementById("googleSignInBtn").onclick = () => signInWithPopup(auth, provider);
 document.getElementById("signOutBtn").onclick = () => signOut(auth);
 
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
   currentUser = user;
   document.getElementById("googleSignInBtn").style.display = user ? "none" : "inline-block";
   document.getElementById("signOutBtn").style.display = user ? "inline-block" : "none";
   document.getElementById("composer").style.display = user ? "block" : "none";
   document.getElementById("userInfo").style.display = user ? "flex" : "none";
+  
   if (user) {
     document.getElementById("userPic").src = user.photoURL || "https://via.placeholder.com/64";
     document.getElementById("userName").textContent = user.displayName || user.email;
+    
+    // Ensure user record exists in 'users' collection
+    const userRef = doc(db, "users", user.uid);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      await setDoc(userRef, {
+        displayName: user.displayName || user.email,
+        photoURL: user.photoURL || "",
+        bio: "",
+        headerUrl: ""
+      }, { merge: true });
+    }
   }
   fetchFeed();
 });
 
-// Profile Modal Handler
-function openUserProfile(authorId, authorName, authorPic) {
+document.getElementById("viewMyProfileBtn").onclick = () => {
+  if (currentUser) openUserProfile(currentUser.uid, currentUser.displayName || currentUser.email, currentUser.photoURL);
+};
+
+// Profile Modal & Edit Handlers
+async function openUserProfile(authorId, authorName, authorPic) {
   currentProfileTarget = { id: authorId, name: authorName, pic: authorPic };
   
-  document.getElementById("modalProfilePic").src = authorPic || "https://via.placeholder.com/80";
-  document.getElementById("modalProfileName").textContent = authorName;
+  // Reset modal state
+  document.getElementById("editForm").style.display = "none";
+  document.getElementById("toggleEditBtn").textContent = "Edit Profile";
   
+  // Load data from Firestore 'users' doc
+  const userSnap = await getDoc(doc(db, "users", authorId));
+  const userData = userSnap.exists() ? userSnap.data() : {};
+
+  const name = userData.displayName || authorName;
+  const pic = userData.photoURL || authorPic || "https://via.placeholder.com/70";
+  const bio = userData.bio || "No bio added yet.";
+  const headerUrl = userData.headerUrl || "";
+
+  document.getElementById("modalProfilePic").src = pic;
+  document.getElementById("modalProfileName").textContent = name;
+  document.getElementById("modalProfileBio").textContent = bio;
+  
+  const bannerEl = document.getElementById("modalHeaderBanner");
+  bannerEl.style.backgroundImage = headerUrl ? `url('${headerUrl}')` : 'none';
+
   const msgBtn = document.getElementById("modalMessageBtn");
+  const editBtn = document.getElementById("toggleEditBtn");
+
   if (currentUser && currentUser.uid === authorId) {
-    msgBtn.style.display = "none"; // Can't message yourself
+    msgBtn.style.display = "none";
+    editBtn.style.display = "block";
+    
+    // Populate edit fields
+    document.getElementById("editNameInput").value = name;
+    document.getElementById("editBioInput").value = userData.bio || "";
+    document.getElementById("editHeaderInput").value = headerUrl;
   } else {
     msgBtn.style.display = "block";
+    editBtn.style.display = "none";
   }
 
   document.getElementById("profileModal").classList.add("open");
@@ -189,6 +249,34 @@ function openUserProfile(authorId, authorName, authorPic) {
 
 document.getElementById("closeProfileModal").onclick = () => {
   document.getElementById("profileModal").classList.remove("open");
+};
+
+document.getElementById("toggleEditBtn").onclick = () => {
+  const form = document.getElementById("editForm");
+  const isHidden = form.style.display === "none" || !form.style.display;
+  form.style.display = isHidden ? "flex" : "none";
+  document.getElementById("toggleEditBtn").textContent = isHidden ? "Cancel Editing" : "Edit Profile";
+};
+
+document.getElementById("saveProfileBtn").onclick = async () => {
+  if (!currentUser) return;
+  
+  const newName = document.getElementById("editNameInput").value.trim();
+  const newBio = document.getElementById("editBioInput").value.trim();
+  const newHeader = document.getElementById("editHeaderInput").value.trim();
+
+  await setDoc(doc(db, "users", currentUser.uid), {
+    displayName: newName || currentUser.email,
+    bio: newBio,
+    headerUrl: newHeader
+  }, { merge: true });
+
+  if (newName) {
+    await updateProfile(currentUser, { displayName: newName });
+    document.getElementById("userName").textContent = newName;
+  }
+
+  openUserProfile(currentUser.uid, newName || currentUser.email, currentUser.photoURL);
 };
 
 document.getElementById("modalMessageBtn").onclick = () => {
@@ -280,7 +368,6 @@ async function fetchFeed() {
       <p>${data.text}</p>
     `;
 
-    // Click author name/pic to open profile
     const authorLink = div.querySelector(".author-link");
     authorLink.onclick = () => openUserProfile(data.authorId, data.authorName, data.authorPic);
 
