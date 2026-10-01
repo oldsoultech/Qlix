@@ -15,7 +15,7 @@ body{ margin:0; font-family:'Comfortaa',sans-serif; background:#547538; color:bl
 .card,.composer,.post{ background:var(--panel); padding:14px; border-radius:var(--radius); box-shadow:var(--shadow); }
 .feed{ display:grid; gap:12px; }
 .profile-pic{ width:32px; height:32px; border-radius:50%; object-fit:cover; background:#ccc; cursor:pointer; }
-.btn{ padding:8px 12px; border-radius:12px; border:none; cursor:pointer; font-family:inherit; }
+.btn{ padding:8px 12px; border-radius:12px; border:none; cursor:pointer; font-family:inherit; position:relative; }
 .btn-sm{ padding:4px 8px; border-radius:8px; font-size:11px; }
 .primary{ background:white; color:#547538; font-weight:700; }
 textarea,input[type="text"],input[type="file"]{ width:100%; box-sizing:border-box; padding:10px; border-radius:12px; border:none; background:rgba(255,255,255,0.8); font-family:inherit; }
@@ -24,7 +24,13 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .author-link{ display:flex; gap:10px; align-items:center; cursor:pointer; }
 .author-link:hover strong{ text-decoration:underline; }
 
-/* DM Drawer Styles */
+/* Notification Badge */
+.notif-badge {
+  position: absolute; top: -4px; right: -4px; background: #e74c3c; color: white;
+  font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 10px; display: none;
+}
+
+/* DM & Notification Drawer Styles */
 .dm-drawer {
   position: fixed; top: 0; right: -360px; width: 340px; height: 100vh;
   background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.3); z-index: 100;
@@ -37,6 +43,15 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .dm-bubble { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.3; }
 .dm-bubble.sent { align-self: flex-end; background: #547538; color: white; }
 .dm-bubble.received { align-self: flex-start; background: #e0e0e0; color: black; }
+
+/* Notification List Items */
+.notif-item {
+  background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd;
+  cursor: pointer; display: flex; flex-direction: column; gap: 4px;
+}
+.notif-item:hover { background: #f0f0f0; }
+.notif-title { font-weight: bold; font-size: 12px; color: #333; }
+.notif-snippet { font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Profile Modal & Header Banner Styles */
 .modal-overlay {
@@ -70,6 +85,9 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .edit-form { display: none; flex-direction: column; gap: 8px; text-align: left; margin-top: 10px; }
 .edit-form label { font-size: 11px; font-weight: bold; color: #444; }
 .edit-form input, .edit-form textarea { font-size: 12px; background: #f0f0f0; margin-bottom: 0; }
+.status-msg { font-size: 11px; font-weight: bold; margin-top: 4px; }
+.status-msg.error { color: #d9534f; }
+.status-msg.success { color: #5cb85c; }
 </style>
 </head>
 <body>
@@ -77,6 +95,10 @@ textarea{ min-height:70px; margin-bottom:8px; }
 <header class="topbar">
   <div class="logo">Qlix 2 (ALPHA)</div>
   <div style="margin-left:auto; display:flex; gap:8px;">
+    <button class="btn" id="notifBtn" style="display:none;">
+      🔔 Direct Messages
+      <span class="notif-badge" id="notifBadge">0</span>
+    </button>
     <button class="btn" id="googleSignInBtn">Sign in with Google</button>
     <button class="btn" id="signOutBtn" style="display:none;">Sign Out</button>
   </div>
@@ -134,6 +156,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
         <input type="text" id="editHeaderInput" placeholder="https://example.com/banner.jpg">
 
         <button class="btn primary btn-sm" id="saveProfileBtn" style="margin-top: 6px;">Save Changes</button>
+        <div class="status-msg" id="uploadStatus"></div>
       </div>
     </div>
   </div>
@@ -146,7 +169,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
     <button class="btn btn-sm" id="closeDmBtn" style="background:#555; color:white;">✕ Close</button>
   </div>
   <div class="dm-body" id="dmBody"></div>
-  <div class="dm-footer">
+  <div class="dm-footer" id="dmFooter">
     <input type="text" id="dmInput" placeholder="Type a message...">
     <button class="btn primary btn-sm" id="sendDmBtn">Send</button>
   </div>
@@ -174,6 +197,7 @@ const provider = new GoogleAuthProvider();
 let currentUser = null;
 let activeChatUserId = null;
 let dmUnsubscribe = null;
+let notifUnsubscribe = null;
 let currentProfileTarget = null;
 
 // Auth
@@ -184,15 +208,16 @@ onAuthStateChanged(auth, async user => {
   currentUser = user;
   document.getElementById("googleSignInBtn").style.display = user ? "none" : "inline-block";
   document.getElementById("signOutBtn").style.display = user ? "inline-block" : "none";
+  document.getElementById("notifBtn").style.display = user ? "inline-block" : "none";
   document.getElementById("composer").style.display = user ? "block" : "none";
   document.getElementById("userInfo").style.display = user ? "flex" : "none";
   
   if (user) {
-    document.getElementById("userPic").src = user.photoURL || "https://via.placeholder.com/64";
-    document.getElementById("userName").textContent = user.displayName || user.email;
-    
+    // Fetch latest user data from Firestore
     const userRef = doc(db, "users", user.uid);
     const snap = await getDoc(userRef);
+    let photoURL = user.photoURL;
+
     if (!snap.exists()) {
       await setDoc(userRef, {
         displayName: user.displayName || user.email,
@@ -200,7 +225,18 @@ onAuthStateChanged(auth, async user => {
         bio: "",
         headerUrl: ""
       }, { merge: true });
+    } else {
+      const data = snap.data();
+      if (data.photoURL) photoURL = data.photoURL;
     }
+
+    document.getElementById("userPic").src = photoURL || "https://via.placeholder.com/64";
+    document.getElementById("userName").textContent = user.displayName || user.email;
+
+    // Listen for direct messages / notifications
+    listenForNotifications();
+  } else {
+    if (notifUnsubscribe) notifUnsubscribe();
   }
   fetchFeed();
 });
@@ -215,6 +251,7 @@ async function openUserProfile(authorId, authorName, authorPic) {
   
   document.getElementById("editForm").style.display = "none";
   document.getElementById("toggleEditBtn").textContent = "Edit Profile";
+  document.getElementById("uploadStatus").textContent = "";
   
   const userSnap = await getDoc(doc(db, "users", authorId));
   const userData = userSnap.exists() ? userSnap.data() : {};
@@ -233,6 +270,11 @@ async function openUserProfile(authorId, authorName, authorPic) {
 
   const msgBtn = document.getElementById("modalMessageBtn");
   const editBtn = document.getElementById("toggleEditBtn");
+
+  msgBtn.onclick = () => {
+    document.getElementById("profileModal").classList.remove("open");
+    openChat(authorId, name);
+  };
 
   if (currentUser && currentUser.uid === authorId) {
     msgBtn.style.display = "none";
@@ -263,56 +305,166 @@ document.getElementById("toggleEditBtn").onclick = () => {
 // Save Profile with File Upload
 document.getElementById("saveProfileBtn").onclick = async () => {
   if (!currentUser) return;
+  
   const saveBtn = document.getElementById("saveProfileBtn");
+  const statusEl = document.getElementById("uploadStatus");
   saveBtn.disabled = true;
   saveBtn.textContent = "Saving...";
+  statusEl.className = "status-msg";
+  statusEl.textContent = "Updating profile...";
 
-  let photoURL = currentUser.photoURL || "";
-  const fileInput = document.getElementById("editAvatarFile");
-  
-  // Handle file upload to Firebase Storage
-  if (fileInput.files.length > 0) {
-    const file = fileInput.files[0];
-    const storageRef = ref(storage, `avatars/${currentUser.uid}`);
-    await uploadBytes(storageRef, file);
-    photoURL = await getDownloadURL(storageRef);
+  try {
+    let photoURL = currentUser.photoURL || "";
+    const fileInput = document.getElementById("editAvatarFile");
+    
+    // Handle file upload to Firebase Storage
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      statusEl.textContent = "Uploading image...";
+      const storageRef = ref(storage, `avatars/${currentUser.uid}`);
+      
+      await uploadBytes(storageRef, file);
+      photoURL = await getDownloadURL(storageRef);
+    }
+
+    const newName = document.getElementById("editNameInput").value.trim();
+    const newBio = document.getElementById("editBioInput").value.trim();
+    const newHeader = document.getElementById("editHeaderInput").value.trim();
+
+    // Update Firestore user document
+    await setDoc(doc(db, "users", currentUser.uid), {
+      displayName: newName || currentUser.email,
+      photoURL: photoURL,
+      bio: newBio,
+      headerUrl: newHeader
+    }, { merge: true });
+
+    // Update Firebase Auth profile
+    await updateProfile(currentUser, { 
+      displayName: newName || currentUser.email,
+      photoURL: photoURL 
+    });
+
+    document.getElementById("userPic").src = photoURL;
+    document.getElementById("userName").textContent = newName || currentUser.email;
+
+    statusEl.className = "status-msg success";
+    statusEl.textContent = "Profile saved successfully!";
+    fileInput.value = "";
+
+    setTimeout(() => {
+      openUserProfile(currentUser.uid, newName || currentUser.email, photoURL);
+      fetchFeed();
+    }, 800);
+
+  } catch (err) {
+    console.error("Profile save error:", err);
+    statusEl.className = "status-msg error";
+    statusEl.textContent = "Error saving profile. Check console or Storage rules.";
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save Changes";
   }
-
-  const newName = document.getElementById("editNameInput").value.trim();
-  const newBio = document.getElementById("editBioInput").value.trim();
-  const newHeader = document.getElementById("editHeaderInput").value.trim();
-
-  // Save profile updates to Firestore
-  await setDoc(doc(db, "users", currentUser.uid), {
-    displayName: newName || currentUser.email,
-    photoURL: photoURL,
-    bio: newBio,
-    headerUrl: newHeader
-  }, { merge: true });
-
-  // Update Auth Profile
-  await updateProfile(currentUser, { 
-    displayName: newName || currentUser.email,
-    photoURL: photoURL 
-  });
-
-  document.getElementById("userPic").src = photoURL;
-  document.getElementById("userName").textContent = newName || currentUser.email;
-
-  saveBtn.disabled = false;
-  saveBtn.textContent = "Save Changes";
-
-  openUserProfile(currentUser.uid, newName || currentUser.email, photoURL);
-  fetchFeed();
 };
 
-// DM Functions
+// DM Notifications Listener
+function listenForNotifications() {
+  if (!currentUser) return;
+
+  const q = query(
+    collection(db, "direct_messages"),
+    where("participants", "array-contains", currentUser.uid)
+  );
+
+  notifUnsubscribe = onSnapshot(q, (snapshot) => {
+    const unreadMap = new Map();
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.senderId !== currentUser.uid) {
+        const otherId = data.senderId;
+        const existing = unreadMap.get(otherId);
+        
+        if (!existing || (data.timestamp?.toMillis() || 0) > (existing.timestamp?.toMillis() || 0)) {
+          unreadMap.set(otherId, data);
+        }
+      }
+    });
+
+    const notifBadge = document.getElementById("notifBadge");
+    const count = unreadMap.size;
+
+    if (count > 0) {
+      notifBadge.textContent = count;
+      notifBadge.style.display = "inline-block";
+    } else {
+      notifBadge.style.display = "none";
+    }
+  });
+}
+
+// Open Notifications Panel (DM Conversations List)
+document.getElementById("notifBtn").onclick = async () => {
+  if (!currentUser) return;
+
+  document.getElementById("dmTargetName").textContent = "Notifications & Messages";
+  document.getElementById("dmFooter").style.display = "none";
+  const dmBody = document.getElementById("dmBody");
+  dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>Loading messages...</p>";
+
+  document.getElementById("dmDrawer").classList.add("open");
+
+  const q = query(
+    collection(db, "direct_messages"),
+    where("participants", "array-contains", currentUser.uid)
+  );
+
+  const snapshot = await getDocs(q);
+  const convos = new Map();
+
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    const otherId = data.participants.find(id => id !== currentUser.uid);
+    if (otherId) {
+      const existing = convos.get(otherId);
+      if (!existing || (data.timestamp?.toMillis() || 0) > (existing.timestamp?.toMillis() || 0)) {
+        convos.set(otherId, { ...data, otherId });
+      }
+    }
+  });
+
+  dmBody.innerHTML = "";
+  if (convos.size === 0) {
+    dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>No active direct messages.</p>";
+    return;
+  }
+
+  const sortedConvos = Array.from(convos.values()).sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+
+  for (const item of sortedConvos) {
+    const userSnap = await getDoc(doc(db, "users", item.otherId));
+    const userData = userSnap.exists() ? userSnap.data() : {};
+    const name = userData.displayName || item.senderName || "User";
+
+    const div = document.createElement("div");
+    div.className = "notif-item";
+    div.innerHTML = `
+      <div class="notif-title">💬 ${name}</div>
+      <div class="notif-snippet">${item.text}</div>
+    `;
+    div.onclick = () => openChat(item.otherId, name);
+    dmBody.appendChild(div);
+  }
+};
+
+// Direct Chat Window
 function openChat(targetUserId, targetUserName) {
   if (!currentUser) return alert("Please sign in to message users.");
   if (currentUser.uid === targetUserId) return alert("You cannot DM yourself.");
 
   activeChatUserId = targetUserId;
   document.getElementById("dmTargetName").textContent = `Chat with ${targetUserName}`;
+  document.getElementById("dmFooter").style.display = "flex";
   document.getElementById("dmDrawer").classList.add("open");
 
   if (dmUnsubscribe) dmUnsubscribe();
@@ -378,34 +530,49 @@ async function fetchFeed() {
   const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   docs.sort((a, b) => (b.timestamp?.toMillis() || Date.now()) - (a.timestamp?.toMillis() || Date.now()));
 
-  docs.forEach(data => {
+  for (const data of docs) {
+    let pic = data.authorPic || "https://via.placeholder.com/32";
+    let name = data.authorName;
+
+    // Fetch user profile data to stay up-to-date
+    if (data.authorId) {
+      const uSnap = await getDoc(doc(db, "users", data.authorId));
+      if (uSnap.exists()) {
+        const uData = uSnap.data();
+        if (uData.photoURL) pic = uData.photoURL;
+        if (uData.displayName) name = uData.displayName;
+      }
+    }
+
     const div = document.createElement("div");
     div.className = "post";
     div.innerHTML = `
       <div class="author-link">
-        <img class="profile-pic" src="${data.authorPic || 'https://via.placeholder.com/32'}">
-        <strong>${data.authorName}</strong>
+        <img class="profile-pic" src="${pic}">
+        <strong>${name}</strong>
       </div>
       <p>${data.text}</p>
     `;
 
     const authorLink = div.querySelector(".author-link");
-    authorLink.onclick = () => openUserProfile(data.authorId, data.authorName, data.authorPic);
+    authorLink.onclick = () => openUserProfile(data.authorId, name, pic);
 
     feed.appendChild(div);
-  });
+  }
 }
 
 document.getElementById("postBtn").onclick = async () => {
   const input = document.getElementById("postText");
   if (!input.value.trim() || !currentUser) return;
+  
   await addDoc(collection(db, "posts"), {
     text: input.value.trim(),
     authorName: currentUser.displayName || currentUser.email,
     authorId: currentUser.uid,
-    authorPic: currentUser.photoURL,
+    authorPic: currentUser.photoURL || "",
     timestamp: serverTimestamp()
   });
+  
   input.value = "";
   fetchFeed();
 };
