@@ -4,221 +4,70 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Qlix 2 (ALPHA)</title>
-
 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap" rel="stylesheet">
-
 <style>
-:root{
-  --panel: rgba(255,255,255,0.15);
-  --radius: 16px;
-  --shadow: 0 8px 24px rgba(0,0,0,0.35);
-}
+:root{ --panel: rgba(255,255,255,0.15); --radius: 16px; --shadow: 0 8px 24px rgba(0,0,0,0.35); }
+body{ margin:0; font-family:'Comfortaa',sans-serif; background:#547538; color:black; overflow-x:hidden; }
+.topbar{ position:sticky; top:0; backdrop-filter:blur(10px); background:black; padding:10px 16px; display:flex; align-items:center; gap:10px; z-index:10; }
+.logo{ font-weight:800; color:white; }
+.wrap{ display:grid; grid-template-columns:260px 1fr; gap:16px; max-width:1100px; margin:14px auto; padding:0 16px; }
+@media(max-width:640px){ .wrap{ grid-template-columns:1fr; } }
+.card,.composer,.post{ background:var(--panel); padding:14px; border-radius:var(--radius); box-shadow:var(--shadow); }
+.feed{ display:grid; gap:12px; }
+.profile-pic{ width:32px; height:32px; border-radius:50%; object-fit:cover; background:#ccc; }
+.profile-pic-sm{ width:24px; height:24px; border-radius:50%; object-fit:cover; background:#ccc; }
+.btn{ padding:8px 12px; border-radius:12px; border:none; cursor:pointer; font-family:inherit; }
+.btn-sm{ padding:4px 8px; border-radius:8px; font-size:11px; }
+.primary{ background:white; color:#547538; font-weight:700; }
+textarea,input[type="text"]{ width:100%; box-sizing:border-box; padding:10px; border-radius:12px; border:none; background:rgba(255,255,255,0.8); font-family:inherit; }
+textarea{ min-height:70px; margin-bottom:8px; }
+.user-card{ display:flex; flex-direction:column; gap:10px; align-items:center; text-align:center; }
 
-body{
-  margin: 0;
-  font-family: 'Comfortaa', sans-serif;
-  background: #547538;
-  color: black;
-}
+.comments-section{ margin-top:12px; padding-top:10px; border-top:1px solid rgba(0,0,0,0.1); }
+.comments-list{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+.comment-item{ background:rgba(255,255,255,0.4); padding:8px 12px; border-radius:10px; font-size:13px; }
+.comment-header{ display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+.comment-input-box{ display:flex; gap:8px; margin-top:8px; }
+.comment-input-box input{ padding:6px 10px; font-size:13px; }
 
-.topbar{
-  position: sticky;
-  top: 0;
-  backdrop-filter: blur(10px);
-  background: black;
-  padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 10;
-}
-
-.logo{
-  font-weight: 800;
-  color: white;
-}
-
-.refresh-status {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
-  margin-left: 10px;
-}
-
-.wrap{
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 16px;
-  max-width: 1100px;
-  margin: 14px auto;
-  padding: 0 16px;
-}
-
-@media (max-width: 640px) {
-  .wrap {
-    grid-template-columns: 1fr;
-  }
-}
-
-.card, .composer, .post{
-  background: var(--panel);
-  padding: 14px;
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-.feed{ display: grid; gap: 12px; }
-
-.profile-pic{
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: #ccc;
-}
-
-.profile-pic-sm{
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: #ccc;
-}
-
-.btn{
-  padding: 8px 12px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.btn-sm {
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-}
-
-.primary{
-  background: white;
-  color: #86B3F7;
-  font-weight: 700;
-}
-
-textarea, input[type="text"], input[type="url"], input[type="email"], input[type="password"]{
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px;
-  border-radius: 12px;
-  border: none;
-  background: rgba(255,255,255,0.8);
-  font-family: inherit;
-}
-
-textarea {
-  min-height: 70px;
-  margin-bottom: 8px;
-}
-
-.user-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: center;
-  text-align: center;
-}
-
-/* Modal styling */
-.modal-overlay {
+/* DM Drawer Overlay Styles */
+.dm-drawer {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal {
+  top: 0;
+  right: -360px;
+  width: 340px;
+  height: 100vh;
   background: white;
-  padding: 20px;
-  border-radius: var(--radius);
-  width: 90%;
-  max-width: 400px;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+  z-index: 100;
+  transition: right 0.3s ease;
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
-
-.auth-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.auth-tabs button {
-  flex: 1;
-}
-
-/* Comments Section Styling */
-.comments-section {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.comments-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.comment-item {
-  background: rgba(255, 255, 255, 0.4);
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 13px;
-}
-
-.comment-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.comment-input-box {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.comment-input-box input {
-  padding: 6px 10px;
-  font-size: 13px;
-}
+.dm-drawer.open { right: 0; }
+.dm-header { padding: 14px; background: #333; color: white; display: flex; justify-content: space-between; align-items: center; }
+.dm-body { flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: #f5f5f5; }
+.dm-footer { padding: 10px; background: #eee; display: flex; gap: 8px; }
+.dm-bubble { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.3; }
+.dm-bubble.sent { align-self: flex-end; background: #547538; color: white; }
+.dm-bubble.received { align-self: flex-start; background: #e0e0e0; color: black; }
 </style>
 </head>
 <body>
 
 <header class="topbar">
   <div class="logo">Qlix 2 (ALPHA)</div>
-  <span class="refresh-status" id="refreshTimer">Auto-refresh: 15s</span>
-
   <div style="margin-left:auto; display:flex; gap:8px;">
-    <button class="btn" id="emailAuthModalBtn">Sign In / Up with Email</button>
     <button class="btn" id="googleSignInBtn">Sign in with Google</button>
     <button class="btn" id="signOutBtn" style="display:none;">Sign Out</button>
   </div>
 </header>
 
 <main class="wrap">
-
   <aside>
     <div class="card user-card" id="userInfo" style="display:none;">
       <img id="userPic" class="profile-pic" style="width: 64px; height: 64px;" alt="Profile Picture">
       <strong id="userName"></strong>
-      <button class="btn primary" id="editProfileBtn">Edit Profile</button>
     </div>
   </aside>
 
@@ -227,78 +76,27 @@ textarea {
       <textarea id="postText" placeholder="What's on your mind?"></textarea>
       <button class="btn primary" id="postBtn">Post</button>
     </div>
-
     <div class="feed" id="feed"></div>
   </section>
-
 </main>
 
-<!-- Email Auth Modal -->
-<div class="modal-overlay" id="authModal" style="display:none;">
-  <div class="modal">
-    <div class="auth-tabs">
-      <button class="btn primary" id="tabSignIn">Sign In</button>
-      <button class="btn" id="tabSignUp">Sign Up</button>
-    </div>
-
-    <div id="signUpFields" style="display:none; flex-direction:column; gap:8px;">
-      <label>Display Name</label>
-      <input type="text" id="authNameInput" placeholder="Your name">
-    </div>
-
-    <label>Email</label>
-    <input type="email" id="authEmailInput" placeholder="name@example.com">
-
-    <label>Password</label>
-    <input type="password" id="authPasswordInput" placeholder="••••••••">
-
-    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
-      <button class="btn" id="cancelAuthBtn">Cancel</button>
-      <button class="btn primary" id="submitAuthBtn">Sign In</button>
-    </div>
+<!-- In-Page DM Drawer -->
+<div class="dm-drawer" id="dmDrawer">
+  <div class="dm-header">
+    <span id="dmTargetName">Chat</span>
+    <button class="btn btn-sm" id="closeDmBtn" style="background:#555; color:white;">✕ Close</button>
   </div>
-</div>
-
-<!-- Edit Profile Modal -->
-<div class="modal-overlay" id="editModal" style="display:none;">
-  <div class="modal">
-    <h3>Edit Profile</h3>
-    <label>Display Name</label>
-    <input type="text" id="editNameInput" placeholder="Your display name">
-    
-    <label>Profile Picture URL</label>
-    <input type="url" id="editPicInput" placeholder="https://example.com/avatar.png">
-    
-    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
-      <button class="btn" id="cancelEditBtn">Cancel</button>
-      <button class="btn primary" id="saveProfileBtn">Save</button>
-    </div>
+  <div class="dm-body" id="dmBody"></div>
+  <div class="dm-footer">
+    <input type="text" id="dmInput" placeholder="Type a message...">
+    <button class="btn primary btn-sm" id="sendDmBtn">Send</button>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged,
-  updateProfile,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  getDocs, 
-  doc, 
-  updateDoc, 
-  arrayUnion, 
-  arrayRemove, 
-  serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, doc, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDP0yDxmCrcIXK_DkdXJZB_XzPRVPXMCyo",
@@ -312,399 +110,135 @@ const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 let currentUser = null;
-let isSignUpMode = false;
-let countdown = 15;
+let activeChatUserId = null;
+let dmUnsubscribe = null;
 
-// Element References
-const googleBtn = document.getElementById("googleSignInBtn");
-const emailAuthModalBtn = document.getElementById("emailAuthModalBtn");
-const signOutBtn = document.getElementById("signOutBtn");
-const composer = document.getElementById("composer");
-const feed = document.getElementById("feed");
-const userInfo = document.getElementById("userInfo");
-const userPic = document.getElementById("userPic");
-const userName = document.getElementById("userName");
-const postBtn = document.getElementById("postBtn");
-const postText = document.getElementById("postText");
-const refreshTimer = document.getElementById("refreshTimer");
-
-// Email Auth Modal Elements
-const authModal = document.getElementById("authModal");
-const tabSignIn = document.getElementById("tabSignIn");
-const tabSignUp = document.getElementById("tabSignUp");
-const signUpFields = document.getElementById("signUpFields");
-const authNameInput = document.getElementById("authNameInput");
-const authEmailInput = document.getElementById("authEmailInput");
-const authPasswordInput = document.getElementById("authPasswordInput");
-const cancelAuthBtn = document.getElementById("cancelAuthBtn");
-const submitAuthBtn = document.getElementById("submitAuthBtn");
-
-// Edit Profile Modal Elements
-const editProfileBtn = document.getElementById("editProfileBtn");
-const editModal = document.getElementById("editModal");
-const editNameInput = document.getElementById("editNameInput");
-const editPicInput = document.getElementById("editPicInput");
-const cancelEditBtn = document.getElementById("cancelEditBtn");
-const saveProfileBtn = document.getElementById("saveProfileBtn");
-
-// Auth Trigger Actions
-googleBtn.onclick = () => signInWithPopup(auth, provider);
-signOutBtn.onclick = () => signOut(auth);
-
-// Toggle Email Auth Modal Tabs
-tabSignIn.onclick = () => {
-  isSignUpMode = false;
-  tabSignIn.classList.add("primary");
-  tabSignUp.classList.remove("primary");
-  signUpFields.style.display = "none";
-  submitAuthBtn.textContent = "Sign In";
-};
-
-tabSignUp.onclick = () => {
-  isSignUpMode = true;
-  tabSignUp.classList.add("primary");
-  tabSignIn.classList.remove("primary");
-  signUpFields.style.display = "flex";
-  submitAuthBtn.textContent = "Sign Up";
-};
-
-emailAuthModalBtn.onclick = () => {
-  authModal.style.display = "flex";
-};
-
-cancelAuthBtn.onclick = () => {
-  authModal.style.display = "none";
-};
-
-// Handle Email/Password Submission
-submitAuthBtn.onclick = async () => {
-  const email = authEmailInput.value.trim();
-  const password = authPasswordInput.value.trim();
-  const name = authNameInput.value.trim();
-
-  if (!email || !password) {
-    alert("Please enter both email and password.");
-    return;
-  }
-
-  try {
-    if (isSignUpMode) {
-      if (!name) {
-        alert("Please enter a display name.");
-        return;
-      }
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, {
-        displayName: name,
-        photoURL: "https://via.placeholder.com/64"
-      });
-    } else {
-      await signInWithEmailAndPassword(auth, email, password);
-    }
-
-    authEmailInput.value = "";
-    authPasswordInput.value = "";
-    authNameInput.value = "";
-    authModal.style.display = "none";
-  } catch (error) {
-    alert(error.message);
-  }
-};
-
-// Render Profile Data
-function updateUIProfile(user) {
-  if (!user) return;
-  userPic.src = user.photoURL || "https://via.placeholder.com/64";
-  userName.textContent = user.displayName || user.email || "Anonymous";
-}
+// Auth
+document.getElementById("googleSignInBtn").onclick = () => signInWithPopup(auth, provider);
+document.getElementById("signOutBtn").onclick = () => signOut(auth);
 
 onAuthStateChanged(auth, user => {
   currentUser = user;
-
+  document.getElementById("googleSignInBtn").style.display = user ? "none" : "inline-block";
+  document.getElementById("signOutBtn").style.display = user ? "inline-block" : "none";
+  document.getElementById("composer").style.display = user ? "block" : "none";
+  document.getElementById("userInfo").style.display = user ? "flex" : "none";
   if (user) {
-    googleBtn.style.display = "none";
-    emailAuthModalBtn.style.display = "none";
-    signOutBtn.style.display = "inline-block";
-    composer.style.display = "block";
-    userInfo.style.display = "flex";
-
-    updateUIProfile(user);
-  } else {
-    googleBtn.style.display = "inline-block";
-    emailAuthModalBtn.style.display = "inline-block";
-    signOutBtn.style.display = "none";
-    composer.style.display = "none";
-    userInfo.style.display = "none";
+    document.getElementById("userPic").src = user.photoURL || "https://via.placeholder.com/64";
+    document.getElementById("userName").textContent = user.displayName || user.email;
   }
+  fetchFeed();
 });
 
-// Profile Modal Handlers
-editProfileBtn.onclick = () => {
-  if (!currentUser) return;
-  editNameInput.value = currentUser.displayName || "";
-  editPicInput.value = currentUser.photoURL || "";
-  editModal.style.display = "flex";
-};
+// DM Functions
+function openChat(targetUserId, targetUserName) {
+  if (!currentUser) return alert("Please sign in to message users.");
+  if (currentUser.uid === targetUserId) return alert("You cannot DM yourself.");
 
-cancelEditBtn.onclick = () => {
-  editModal.style.display = "none";
-};
+  activeChatUserId = targetUserId;
+  document.getElementById("dmTargetName").textContent = `Chat with ${targetUserName}`;
+  document.getElementById("dmDrawer").classList.add("open");
 
-saveProfileBtn.onclick = async () => {
-  if (!currentUser) return;
+  if (dmUnsubscribe) dmUnsubscribe();
 
-  const newName = editNameInput.value.trim();
-  const newPic = editPicInput.value.trim();
+  // Listen to real-time messages between the two users
+  const q = query(
+    collection(db, "direct_messages"),
+    where("participants", "array-contains", currentUser.uid)
+  );
 
-  try {
-    await updateProfile(currentUser, {
-      displayName: newName,
-      photoURL: newPic
+  dmUnsubscribe = onSnapshot(q, (snapshot) => {
+    const dmBody = document.getElementById("dmBody");
+    dmBody.innerHTML = "";
+
+    const messages = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.participants.includes(targetUserId)) {
+        messages.push(data);
+      }
     });
 
-    updateUIProfile(currentUser);
-    editModal.style.display = "none";
-  } catch (error) {
-    alert("Failed to update profile: " + error.message);
-  }
-};
+    messages.sort((a, b) => (a.timestamp?.toMillis() || Date.now()) - (b.timestamp?.toMillis() || Date.now()));
 
-// Post Creation
-postBtn.onclick = async () => {
-  const text = postText.value.trim();
-  if (!text || !currentUser) return;
-
-  try {
-    await addDoc(collection(db, "posts"), {
-      text,
-      authorName: currentUser.displayName || currentUser.email || "Anonymous",
-      authorId: currentUser.uid,
-      authorPic: currentUser.photoURL || "https://via.placeholder.com/32",
-      likes: [],
-      timestamp: serverTimestamp()
+    messages.forEach(msg => {
+      const bubble = document.createElement("div");
+      bubble.className = `dm-bubble ${msg.senderId === currentUser.uid ? 'sent' : 'received'}`;
+      bubble.textContent = msg.text;
+      dmBody.appendChild(bubble);
     });
 
-    postText.value = "";
-    fetchFeed();
-  } catch (err) {
-    console.error("Error adding post: ", err);
-  }
+    dmBody.scrollTop = dmBody.scrollHeight;
+  });
+}
+
+document.getElementById("closeDmBtn").onclick = () => {
+  document.getElementById("dmDrawer").classList.remove("open");
+  if (dmUnsubscribe) dmUnsubscribe();
 };
 
-// Fetch Comments for a Post
-async function fetchComments(postId, commentsListEl) {
-  try {
-    const commentsSnap = await getDocs(collection(db, "posts", postId, "comments"));
-    commentsListEl.innerHTML = "";
+document.getElementById("sendDmBtn").onclick = async () => {
+  const input = document.getElementById("dmInput");
+  const text = input.value.trim();
+  if (!text || !activeChatUserId || !currentUser) return;
 
-    const comments = commentsSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-    
-    comments.sort((a, b) => {
-      const timeA = a.timestamp ? a.timestamp.toMillis() : Date.now();
-      const timeB = b.timestamp ? b.timestamp.toMillis() : Date.now();
-      return timeA - timeB; // Oldest first
-    });
+  await addDoc(collection(db, "direct_messages"), {
+    senderId: currentUser.uid,
+    receiverId: activeChatUserId,
+    participants: [currentUser.uid, activeChatUserId],
+    senderName: currentUser.displayName || currentUser.email,
+    text: text,
+    timestamp: serverTimestamp()
+  });
 
-    if (comments.length === 0) {
-      commentsListEl.innerHTML = "<div style='font-size:12px; opacity:0.6;'>No comments yet.</div>";
-      return 0;
+  input.value = "";
+};
+
+// Feed & Comments
+async function fetchFeed() {
+  const feed = document.getElementById("feed");
+  const snapshot = await getDocs(collection(db, "posts"));
+  feed.innerHTML = "";
+
+  const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  docs.sort((a, b) => (b.timestamp?.toMillis() || Date.now()) - (a.timestamp?.toMillis() || Date.now()));
+
+  docs.forEach(data => {
+    const div = document.createElement("div");
+    div.className = "post";
+    div.innerHTML = `
+      <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+        <div style="display:flex; gap:10px; align-items:center;">
+          <img class="profile-pic" src="${data.authorPic || 'https://via.placeholder.com/32'}">
+          <strong>${data.authorName}</strong>
+        </div>
+        ${currentUser && data.authorId !== currentUser.uid ? `<button class="btn btn-sm dm-btn">✉️️ Message</button>` : ''}
+      </div>
+      <p>${data.text}</p>
+    `;
+
+    const dmBtn = div.querySelector(".dm-btn");
+    if (dmBtn) {
+      dmBtn.onclick = () => openChat(data.authorId, data.authorName);
     }
 
-    comments.forEach(c => {
-      const item = document.createElement("div");
-      item.className = "comment-item";
-
-      const header = document.createElement("div");
-      header.className = "comment-header";
-
-      const pic = document.createElement("img");
-      pic.className = "profile-pic-sm";
-      pic.src = c.authorPic || "https://via.placeholder.com/24";
-
-      const name = document.createElement("strong");
-      name.textContent = c.authorName;
-
-      header.appendChild(pic);
-      header.appendChild(name);
-
-      const body = document.createElement("div");
-      body.textContent = c.text;
-
-      item.appendChild(header);
-      item.appendChild(body);
-      commentsListEl.appendChild(item);
-    });
-
-    return comments.length;
-  } catch (err) {
-    console.error("Error loading comments: ", err);
-    return 0;
-  }
+    feed.appendChild(div);
+  });
 }
 
-// Fetch Feed Function
-async function fetchFeed() {
-  try {
-    const snapshot = await getDocs(collection(db, "posts"));
-    feed.innerHTML = "";
-
-    const docs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-
-    docs.sort((a, b) => {
-      const timeA = a.timestamp ? a.timestamp.toMillis() : Date.now();
-      const timeB = b.timestamp ? b.timestamp.toMillis() : Date.now();
-      return timeB - timeA;
-    });
-
-    docs.forEach(data => {
-      const liked = currentUser ? data.likes?.includes(currentUser.uid) : false;
-
-      const div = document.createElement("div");
-      div.className = "post";
-
-      // Header
-      const header = document.createElement("div");
-      header.style.display = "flex";
-      header.style.gap = "10px";
-      header.style.alignItems = "center";
-
-      const pic = document.createElement("img");
-      pic.className = "profile-pic";
-      pic.src = data.authorPic || "https://via.placeholder.com/32";
-
-      const name = document.createElement("strong");
-      name.textContent = data.authorName;
-
-      header.appendChild(pic);
-      header.appendChild(name);
-
-      // Body text
-      const content = document.createElement("p");
-      content.textContent = data.text;
-
-      // Action Bar (Likes & Comments Toggle)
-      const actionBar = document.createElement("div");
-      actionBar.style.display = "flex";
-      actionBar.style.gap = "8px";
-
-      const likeBtn = document.createElement("button");
-      likeBtn.className = "btn";
-      likeBtn.innerHTML = `${liked ? '❤️' : '🤍'} ${data.likes?.length || 0}`;
-
-      likeBtn.onclick = async () => {
-        if (!currentUser) {
-          alert("Please sign in to like posts.");
-          return;
-        }
-
-        const ref = doc(db, "posts", data.id);
-        if (liked) {
-          await updateDoc(ref, { likes: arrayRemove(currentUser.uid) });
-        } else {
-          await updateDoc(ref, { likes: arrayUnion(currentUser.uid) });
-        }
-        fetchFeed();
-      };
-
-      const commentToggleBtn = document.createElement("button");
-      commentToggleBtn.className = "btn";
-      commentToggleBtn.innerHTML = `💬 Comments`;
-
-      // Comments Section Container
-      const commentsSection = document.createElement("div");
-      commentsSection.className = "comments-section";
-      commentsSection.style.display = "none";
-
-      const commentsList = document.createElement("div");
-      commentsList.className = "comments-list";
-
-      // Comment Box (Input + Button)
-      const commentInputBox = document.createElement("div");
-      commentInputBox.className = "comment-input-box";
-
-      const commentInput = document.createElement("input");
-      commentInput.type = "text";
-      commentInput.placeholder = currentUser ? "Write a comment..." : "Sign in to comment";
-      commentInput.disabled = !currentUser;
-
-      const addCommentBtn = document.createElement("button");
-      addCommentBtn.className = "btn primary btn-sm";
-      addCommentBtn.textContent = "Reply";
-      addCommentBtn.disabled = !currentUser;
-
-      addCommentBtn.onclick = async () => {
-        const text = commentInput.value.trim();
-        if (!text || !currentUser) return;
-
-        try {
-          await addDoc(collection(db, "posts", data.id, "comments"), {
-            text,
-            authorName: currentUser.displayName || currentUser.email || "Anonymous",
-            authorId: currentUser.uid,
-            authorPic: currentUser.photoURL || "https://via.placeholder.com/24",
-            timestamp: serverTimestamp()
-          });
-
-          commentInput.value = "";
-          const count = await fetchComments(data.id, commentsList);
-          commentToggleBtn.innerHTML = `💬 ${count}`;
-        } catch (err) {
-          console.error("Error posting comment: ", err);
-        }
-      };
-
-      commentInputBox.appendChild(commentInput);
-      commentInputBox.appendChild(addCommentBtn);
-
-      commentsSection.appendChild(commentInputBox);
-      commentsSection.appendChild(commentsList);
-
-      // Toggle comments visibility
-      commentToggleBtn.onclick = async () => {
-        const isHidden = commentsSection.style.display === "none";
-        commentsSection.style.display = isHidden ? "block" : "none";
-        if (isHidden) {
-          const count = await fetchComments(data.id, commentsList);
-          commentToggleBtn.innerHTML = `💬 ${count}`;
-        }
-      };
-
-      // Pre-fetch comment count for button label
-      getDocs(collection(db, "posts", data.id, "comments")).then(cSnap => {
-        commentToggleBtn.innerHTML = `💬 ${cSnap.size}`;
-      });
-
-      actionBar.appendChild(likeBtn);
-      actionBar.appendChild(commentToggleBtn);
-
-      div.appendChild(header);
-      div.appendChild(content);
-      div.appendChild(actionBar);
-      div.appendChild(commentsSection);
-
-      feed.appendChild(div);
-    });
-
-    countdown = 15;
-  } catch (error) {
-    console.error("Error fetching feed: ", error);
-  }
-}
-
-// Initial Fetch
-fetchFeed();
-
-// 15-Second Refresh Interval & Countdown Timer
-setInterval(() => {
-  countdown--;
-  if (countdown <= 0) {
-    refreshTimer.textContent = "Refreshing...";
-    fetchFeed();
-  } else {
-    refreshTimer.textContent = `Auto-refresh: ${countdown}s`;
-  }
-}, 1000);
+document.getElementById("postBtn").onclick = async () => {
+  const input = document.getElementById("postText");
+  if (!input.value.trim() || !currentUser) return;
+  await addDoc(collection(db, "posts"), {
+    text: input.value.trim(),
+    authorName: currentUser.displayName || currentUser.email,
+    authorId: currentUser.uid,
+    authorPic: currentUser.photoURL,
+    timestamp: serverTimestamp()
+  });
+  input.value = "";
+  fetchFeed();
+};
 </script>
-
 </body>
 </html>
