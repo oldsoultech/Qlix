@@ -143,7 +143,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
   </section>
 </main>
 
-<!-- Authentication Modal (Email + Google) -->
+<!-- Authentication Modal -->
 <div class="modal-overlay" id="authModal">
   <div class="auth-modal">
     <button class="close-modal" id="closeAuthModal">✕</button>
@@ -199,7 +199,8 @@ textarea{ min-height:70px; margin-bottom:8px; }
       <h3 id="modalProfileName" style="margin: 0;">User Name</h3>
       <div class="profile-bio" id="modalProfileBio">No bio added yet.</div>
 
-      <button class="btn primary" id="modalMessageBtn" style="width: 100%;">✉ Send Message</button>
+      <!-- Direct Message Action Button -->
+      <button class="btn primary" id="modalMessageBtn" style="width: 100%; background: #547538; color: white;">✉ Send Message</button>
       <button class="btn btn-sm" id="toggleEditBtn" style="width: 100%; display: none; background: #eee;">Edit Profile</button>
 
       <div class="edit-form" id="editForm">
@@ -333,7 +334,6 @@ emailSignUpForm.onsubmit = async (e) => {
   }
 };
 
-// Global Auth State Observer
 onAuthStateChanged(auth, async user => {
   currentUser = user;
   document.getElementById("openAuthModalBtn").style.display = user ? "none" : "inline-block";
@@ -375,7 +375,7 @@ document.getElementById("viewMyProfileBtn").onclick = () => {
   if (currentUser) openUserProfile(currentUser.uid, currentUser.displayName || currentUser.email, currentUser.photoURL);
 };
 
-// Profile Modal & Edit Handlers
+// Open User Profile & Direct Message Routing
 async function openUserProfile(authorId, authorName, authorPic) {
   document.getElementById("editForm").style.display = "none";
   document.getElementById("toggleEditBtn").textContent = "Edit Profile";
@@ -399,11 +399,13 @@ async function openUserProfile(authorId, authorName, authorPic) {
   const msgBtn = document.getElementById("modalMessageBtn");
   const editBtn = document.getElementById("toggleEditBtn");
 
+  // Send DM Action
   msgBtn.onclick = () => {
     document.getElementById("profileModal").classList.remove("open");
     openChat(authorId, name);
   };
 
+  // Profile View Logic (Self vs Other User)
   if (currentUser && currentUser.uid === authorId) {
     msgBtn.style.display = "none";
     editBtn.style.display = "block";
@@ -431,7 +433,6 @@ document.getElementById("toggleEditBtn").onclick = () => {
   document.getElementById("toggleEditBtn").textContent = isHidden ? "Cancel Editing" : "Edit Profile";
 };
 
-// Save Profile
 document.getElementById("saveProfileBtn").onclick = async () => {
   if (!currentUser) return;
   
@@ -479,7 +480,6 @@ document.getElementById("saveProfileBtn").onclick = async () => {
   }
 };
 
-// DM Notifications Listener
 function listenForNotifications() {
   if (!currentUser) return;
 
@@ -515,7 +515,6 @@ function listenForNotifications() {
   });
 }
 
-// Open Notifications Panel
 document.getElementById("notifBtn").onclick = async () => {
   if (!currentUser) return;
 
@@ -569,7 +568,6 @@ document.getElementById("notifBtn").onclick = async () => {
   }
 };
 
-// Direct Chat Window
 function openChat(targetUserId, targetUserName) {
   if (!currentUser) return alert("Please sign in to message users.");
   if (currentUser.uid === targetUserId) return alert("You cannot DM yourself.");
@@ -633,7 +631,6 @@ document.getElementById("sendDmBtn").onclick = async () => {
   input.value = "";
 };
 
-// Feed & Posts with Subcollection Comments
 async function fetchFeed() {
   const feed = document.getElementById("feed");
   const snapshot = await getDocs(collection(db, "posts"));
@@ -680,7 +677,6 @@ async function fetchFeed() {
 
     feed.appendChild(div);
 
-    // Load & Subscribe to Comments for this Post
     listenToComments(data.id);
 
     if (currentUser) {
