@@ -27,6 +27,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
 /* Post & Comments Styling */
 .post { display: flex; flex-direction: column; gap: 8px; }
 .comments-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 6px; }
+.comments-list { display: flex; flex-direction: column; gap: 6px; }
 .comment-item { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; background: rgba(255,255,255,0.25); padding: 6px 10px; border-radius: 8px; }
 .comment-content { display: flex; flex-direction: column; gap: 2px; }
 .comment-author { font-weight: bold; cursor: pointer; }
@@ -262,6 +263,7 @@ let currentUser = null;
 let activeChatUserId = null;
 let dmUnsubscribe = null;
 let notifUnsubscribe = null;
+const commentUnsubscribes = new Map();
 
 // Auth Modal Controls
 const authModal = document.getElementById("authModal");
@@ -632,6 +634,10 @@ document.getElementById("sendDmBtn").onclick = async () => {
 };
 
 async function fetchFeed() {
+  // Clear out any old comment listeners
+  commentUnsubscribes.forEach(unsub => unsub());
+  commentUnsubscribes.clear();
+
   const feed = document.getElementById("feed");
   const snapshot = await getDocs(collection(db, "posts"));
   feed.innerHTML = "";
@@ -666,7 +672,7 @@ async function fetchFeed() {
         ${currentUser ? `
           <div class="comment-input-wrap">
             <input type="text" id="commentInput-${data.id}" placeholder="Write a comment...">
-            <button class="btn primary btn-sm" id="commentBtn-${data.id}">Reply</button>
+            <button class="btn primary btn-sm comment-submit-btn" data-post-id="${data.id}">Reply</button>
           </div>
         ` : ''}
       </div>
@@ -680,8 +686,13 @@ async function fetchFeed() {
     listenToComments(data.id);
 
     if (currentUser) {
-      const commentBtn = div.querySelector(`#commentBtn-${data.id}`);
-      commentBtn.onclick = () => addComment(data.id);
+      const commentBtn = div.querySelector(`.comment-submit-btn`);
+      if (commentBtn) {
+        commentBtn.onclick = (e) => {
+          const postId = e.target.getAttribute("data-post-id");
+          addComment(postId);
+        };
+      }
     }
   }
 }
@@ -690,9 +701,9 @@ function listenToComments(postId) {
   const commentsList = document.getElementById(`comments-${postId}`);
   if (!commentsList) return;
 
-  const q = collection(db, "posts", postId, "comments");
+  const commentsRef = collection(db, "posts", postId, "comments");
   
-  onSnapshot(q, async (snapshot) => {
+  const unsub = onSnapshot(commentsRef, async (snapshot) => {
     commentsList.innerHTML = "";
     const comments = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     comments.sort((a, b) => (a.timestamp?.toMillis() || Date.now()) - (b.timestamp?.toMillis() || Date.now()));
@@ -726,22 +737,30 @@ function listenToComments(postId) {
       commentsList.appendChild(item);
     }
   });
+
+  commentUnsubscribes.set(postId, unsub);
 }
 
 async function addComment(postId) {
   const input = document.getElementById(`commentInput-${postId}`);
+  if (!input) return;
+
   const text = input.value.trim();
   if (!text || !currentUser) return;
 
-  await addDoc(collection(db, "posts", postId, "comments"), {
-    text: text,
-    authorName: currentUser.displayName || currentUser.email,
-    authorId: currentUser.uid,
-    authorPic: currentUser.photoURL || "",
-    timestamp: serverTimestamp()
-  });
+  try {
+    await addDoc(collection(db, "posts", postId, "comments"), {
+      text: text,
+      authorName: currentUser.displayName || currentUser.email,
+      authorId: currentUser.uid,
+      authorPic: currentUser.photoURL || "",
+      timestamp: serverTimestamp()
+    });
 
-  input.value = "";
+    input.value = "";
+  } catch (err) {
+    console.error("Error adding comment to subcollection:", err);
+  }
 }
 
 document.getElementById("postBtn").onclick = async () => {
