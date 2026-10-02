@@ -125,15 +125,15 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .dm-bubble.sent { align-self: flex-end; background: #547538; color: white; }
 .dm-bubble.received { align-self: flex-start; background: #e0e0e0; color: black; }
 
-/* Notification Items */
-.notif-item {
+/* DM List & Notification Items */
+.notif-item, .dm-list-item {
   background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd;
   cursor: pointer; display: flex; flex-direction: column; gap: 4px;
 }
-.notif-item:hover { background: #f0f0f0; }
+.notif-item:hover, .dm-list-item:hover { background: #f0f0f0; }
 .notif-item.notif-dm { border-left: 4px solid #547538; }
-.notif-title { font-weight: bold; font-size: 12px; color: #333; }
-.notif-snippet { font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notif-title, .dm-user-title { font-weight: bold; font-size: 12px; color: #333; }
+.notif-snippet, .dm-last-snippet { font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Modals */
 .modal-overlay {
@@ -222,7 +222,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
   </aside>
 
   <section>
-    <!-- Welcome Greeting Hero Banner -->
+    <!-- Welcome Banner -->
     <div class="welcome-banner" id="welcomeBanner">
       <h2 class="welcome-heading" id="welcomeHeading">Welcome to Qlix!</h2>
       <div class="scroll-indicator">
@@ -293,7 +293,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
       <h3 id="modalProfileName" style="margin: 0;">User Name</h3>
       <div id="modalProfileHandle" style="font-size:12px; color:#666;">@user</div>
       
-      <!-- Followers & Friends Stats Header -->
+      <!-- Followers & Friends Stats -->
       <div class="profile-stats">
         <div><strong id="modalFollowersCount">0</strong><span>Followers</span></div>
         <div><strong id="modalFollowingCount">0</strong><span>Following</span></div>
@@ -301,7 +301,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
 
       <div class="profile-bio" id="modalProfileBio">No bio added yet.</div>
 
-      <!-- Action & Relationship Buttons -->
+      <!-- Action Buttons -->
       <div style="display:flex; gap:8px; width:100%;">
         <button class="btn btn-follow" id="modalFollowBtn" style="flex:1; display:none;">+ Follow</button>
         <button class="btn btn-friend" id="modalFriendBadge" style="display:none;">🤝 Friends</button>
@@ -342,7 +342,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
         <div class="status-msg" id="uploadStatus"></div>
       </div>
 
-      <!-- User Specific Post Feed -->
+      <!-- User Post Feed -->
       <div class="user-posts-container">
         <div class="user-posts-title" id="userPostsTitle">User Posts</div>
         <div class="feed" id="userPostsFeed"></div>
@@ -616,7 +616,7 @@ async function fetchFeed() {
   posts.forEach(post => feed.appendChild(createPostCard(post)));
 }
 
-// Open Profile
+// Open User Profile
 async function openUserProfile(authorId) {
   document.getElementById("editForm").style.display = "none";
   document.getElementById("toggleEditBtn").textContent = "Edit Profile";
@@ -712,7 +712,7 @@ async function openUserProfile(authorId) {
   document.getElementById("profileModal").classList.add("open");
 }
 
-// Chat System
+// Chat Conversation Window
 function openChat(targetUserId, targetUserName) {
   if (!currentUser) return;
   activeChatUserId = targetUserId;
@@ -763,7 +763,7 @@ document.getElementById("sendDmBtn").onclick = async () => {
     timestamp: serverTimestamp()
   });
 
-  // Create Notification for Receiver
+  // Notification for recipient
   await addDoc(collection(db, "notifications"), {
     recipientId: activeChatUserId,
     senderId: currentUser.uid,
@@ -779,7 +779,69 @@ document.getElementById("closeDmBtn").onclick = () => {
   document.getElementById("dmDrawer").classList.remove("open");
 };
 
-// Notifications Drawer Listener
+// Render Conversations List in DM Tab
+async function loadDMList() {
+  if (!currentUser) return;
+  document.getElementById("dmTargetName").textContent = "💬 Direct Messages";
+  document.getElementById("dmFooter").style.display = "none";
+
+  const dmBody = document.getElementById("dmBody");
+  dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>Loading conversations...</p>";
+  document.getElementById("dmDrawer").classList.add("open");
+
+  const q = query(collection(db, "direct_messages"), where("participants", "array-contains", currentUser.uid));
+  const snap = await getDocs(q);
+
+  dmBody.innerHTML = "";
+  if (snap.empty) {
+    dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>No message conversations found.</p>";
+    return;
+  }
+
+  // Group messages by target user ID
+  const conversationsMap = new Map();
+  snap.docs.forEach(d => {
+    const data = d.data();
+    const partnerId = data.participants.find(id => id !== currentUser.uid);
+    if (partnerId) {
+      if (!conversationsMap.has(partnerId)) {
+        conversationsMap.set(partnerId, []);
+      }
+      conversationsMap.get(partnerId).push(data);
+    }
+  });
+
+  if (conversationsMap.size === 0) {
+    dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>No message conversations found.</p>";
+    return;
+  }
+
+  for (const [partnerId, msgs] of conversationsMap.entries()) {
+    msgs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+    const latestMsg = msgs[0];
+
+    const partnerSnap = await getDoc(doc(db, "users", partnerId));
+    const partnerData = partnerSnap.exists() ? partnerSnap.data() : {};
+    const partnerName = partnerData.displayName || "User";
+
+    const item = document.createElement("div");
+    item.className = "dm-list-item";
+    item.innerHTML = `
+      <div class="dm-user-title">${partnerName}</div>
+      <div class="dm-last-snippet">${latestMsg.senderId === currentUser.uid ? 'You: ' : ''}${latestMsg.text}</div>
+      <div style="font-size:10px; color:#999;">${formatDate(latestMsg.timestamp)}</div>
+    `;
+
+    item.onclick = () => openChat(partnerId, partnerName);
+    dmBody.appendChild(item);
+  }
+}
+
+document.getElementById("dmTabBtn").onclick = () => {
+  loadDMList();
+};
+
+// Notification Feed Drawer
 function listenToNotifications() {
   if (!currentUser) return;
   const q = query(collection(db, "notifications"), where("recipientId", "==", currentUser.uid));
@@ -846,13 +908,6 @@ document.getElementById("notifTabBtn").onclick = async () => {
 
     dmBody.appendChild(item);
   });
-};
-
-document.getElementById("dmTabBtn").onclick = () => {
-  document.getElementById("dmTargetName").textContent = "💬 Messages";
-  document.getElementById("dmFooter").style.display = "none";
-  document.getElementById("dmBody").innerHTML = "<p style='font-size:12px; color:#666;'>Select a user from their profile to start chatting.</p>";
-  document.getElementById("dmDrawer").classList.add("open");
 };
 
 // Profile Edit Form Handlers
@@ -1046,7 +1101,7 @@ document.getElementById("googleSignInBtn").onclick = async () => {
 
 document.getElementById("signOutBtn").onclick = () => signOut(auth);
 
-// Firebase State Listener
+// Auth State Observer
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   startWelcomeRotation();
