@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Qlix 2</title>
+<title>Qlix 2 (ALPHA)</title>
 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
 :root{ --panel: rgba(255,255,255,0.15); --radius: 16px; --shadow: 0 8px 24px rgba(0,0,0,0.35); }
@@ -77,12 +77,13 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .post-header { display: flex; justify-content: space-between; align-items: center; }
 .comments-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 6px; }
 .comments-list { display: flex; flex-direction: column; gap: 6px; }
-.comment-item { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; background: rgba(255,255,255,0.25); padding: 6px 10px; border-radius: 8px; }
+.comment-item { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; background: rgba(255,255,255,0.25); padding: 6px 10px; border-radius: 8px; position: relative; }
 .comment-content { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .comment-author { font-weight: bold; cursor: pointer; }
 .comment-author:hover { text-decoration: underline; }
 .comment-input-wrap { display: flex; gap: 6px; margin-top: 4px; }
 .comment-input-wrap input { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+.comment-delete-btn { position: absolute; right: 6px; top: 6px; font-size: 10px; padding: 2px 6px; }
 
 /* Mention Styling */
 .mention-link {
@@ -195,7 +196,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
 <body>
 
 <header class="topbar">
-  <div class="logo" id="appLogo">Qlix 2</div>
+  <div class="logo" id="appLogo">Qlix 2 (ALPHA)</div>
   <div style="margin-left:auto; display:flex; gap:8px;">
     <button class="btn" id="notifTabBtn" style="display:none;">
       🔔 Notifications
@@ -483,7 +484,7 @@ async function notifyMentions(text, postOrCommentId) {
   }
 }
 
-// Dynamic Post Builder with Realtime Comments
+// Dynamic Post Builder with Realtime Comments & Comment Deletion
 function createPostCard(post) {
   const card = document.createElement("div");
   card.className = "post";
@@ -552,9 +553,9 @@ function createPostCard(post) {
     input.onkeydown = (e) => { if (e.key === "Enter") submitComment(); };
   }
 
-  // Comment Stream
+  // Comment Stream with Delete Functionality
   const commentsList = card.querySelector(`#comments-${post.id}`);
-  const commentsQ = query(collection(db, "posts", post.id, "comments"));
+  const commentsQ = collection(db, "posts", post.id, "comments");
   
   if (commentUnsubscribes.has(post.id)) commentUnsubscribes.get(post.id)();
 
@@ -564,17 +565,29 @@ function createPostCard(post) {
 
     commentsList.innerHTML = "";
     comments.forEach(c => {
+      const isCommentAuthor = currentUser && currentUser.uid === c.authorId;
+      const canDeleteComment = isCommentAuthor || isAuthor;
+
       const cDiv = document.createElement("div");
       cDiv.className = "comment-item";
       cDiv.innerHTML = `
         <img src="${c.authorPic || 'https://via.placeholder.com/32'}" class="profile-pic" style="width:24px; height:24px;">
         <div class="comment-content">
           <div><span class="comment-author">${c.authorName}</span> <span class="post-timestamp">${formatDate(c.timestamp)}</span></div>
-          <div>${renderMentions(c.text)}</div>
+          <div style="padding-right: 40px;">${renderMentions(c.text)}</div>
         </div>
+        ${canDeleteComment ? `<button class="btn btn-sm btn-danger comment-delete-btn">✕</button>` : ''}
       `;
+
       cDiv.querySelector(".comment-author").onclick = () => openUserProfile(c.authorId);
       bindMentionLinks(cDiv);
+
+      if (canDeleteComment) {
+        cDiv.querySelector(".comment-delete-btn").onclick = async () => {
+          await deleteDoc(doc(db, "posts", post.id, "comments", c.id));
+        };
+      }
+
       commentsList.appendChild(cDiv);
     });
   });
@@ -588,7 +601,7 @@ async function fetchFeed() {
   const feed = document.getElementById("feed");
   feed.innerHTML = "<p style='color:white; text-align:center;'>Loading posts...</p>";
 
-  const q = query(collection(db, "posts"));
+  const q = collection(db, "posts");
   const snap = await getDocs(q);
   
   feed.innerHTML = "";
@@ -603,7 +616,7 @@ async function fetchFeed() {
   posts.forEach(post => feed.appendChild(createPostCard(post)));
 }
 
-// Complete Profile Modal with Friends, Follow System, and Personal Feed
+// Complete Profile Modal
 async function openUserProfile(authorId) {
   document.getElementById("editForm").style.display = "none";
   document.getElementById("toggleEditBtn").textContent = "Edit Profile";
@@ -681,19 +694,21 @@ async function openUserProfile(authorId) {
     document.getElementById("editHeaderInput").value = headerUrl;
   }
 
-  // Load User Specific Post Stream inside Profile
+  // Load User Specific Post Stream inside Profile (Client-side filtered to avoid index errors)
   const userFeed = document.getElementById("userPostsFeed");
   userFeed.innerHTML = "<p style='font-size:12px;'>Loading user posts...</p>";
   
-  const q = query(collection(db, "posts"), where("authorId", "==", authorId));
-  const postSnap = await getDocs(q);
+  const snap = await getDocs(collection(db, "posts"));
   userFeed.innerHTML = "";
 
-  if (postSnap.empty) {
+  const userPosts = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(p => p.authorId === authorId)
+    .sort((a,b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+
+  if (userPosts.length === 0) {
     userFeed.innerHTML = "<p style='font-size:12px; color:#666;'>No posts published yet.</p>";
   } else {
-    const userPosts = postSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    userPosts.sort((a,b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
     userPosts.forEach(post => userFeed.appendChild(createPostCard(post)));
   }
 
