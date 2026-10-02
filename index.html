@@ -110,6 +110,19 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .status-msg { font-size: 11px; font-weight: bold; margin-top: 4px; }
 .status-msg.error { color: #d9534f; }
 .status-msg.success { color: #5cb85c; }
+
+/* Info Popover Styles */
+.info-popover-wrapper { position: relative; display: inline-block; margin-left: 4px; }
+.info-popover-btn { cursor: pointer; color: #547538; text-decoration: underline; font-weight: bold; }
+.info-popover-content {
+  display: none; position: absolute; bottom: 100%; left: 0; width: 240px;
+  background: #fff; color: #333; padding: 10px; border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25); border: 1px solid #ccc;
+  font-size: 10px; font-weight: normal; z-index: 10; margin-bottom: 6px;
+}
+.info-popover-wrapper:hover .info-popover-content { display: block; }
+.info-popover-content ul { margin: 4px 0 0 0; padding-left: 14px; }
+.info-popover-content li { margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -144,7 +157,6 @@ textarea{ min-height:70px; margin-bottom:8px; }
   </section>
 </main>
 
-<!-- Authentication Modal -->
 <div class="modal-overlay" id="authModal">
   <div class="auth-modal">
     <button class="close-modal" id="closeAuthModal">✕</button>
@@ -154,7 +166,6 @@ textarea{ min-height:70px; margin-bottom:8px; }
         <button class="auth-tab" id="tabSignUp">Register</button>
       </div>
 
-      <!-- Email Sign In Form -->
       <form class="auth-form" id="emailSignInForm">
         <label>Email Address</label>
         <input type="email" id="signInEmail" placeholder="you@example.com" required>
@@ -163,7 +174,6 @@ textarea{ min-height:70px; margin-bottom:8px; }
         <button type="submit" class="btn primary" style="background:#547538; color:white; margin-top:6px;">Sign In with Email</button>
       </form>
 
-      <!-- Email Sign Up Form -->
       <form class="auth-form" id="emailSignUpForm" style="display: none;">
         <label>Display Name</label>
         <input type="text" id="signUpName" placeholder="John Doe" required>
@@ -185,7 +195,6 @@ textarea{ min-height:70px; margin-bottom:8px; }
   </div>
 </div>
 
-<!-- Profile Modal -->
 <div class="modal-overlay" id="profileModal">
   <div class="profile-modal">
     <button class="close-modal" id="closeProfileModal">✕</button>
@@ -200,12 +209,23 @@ textarea{ min-height:70px; margin-bottom:8px; }
       <h3 id="modalProfileName" style="margin: 0;">User Name</h3>
       <div class="profile-bio" id="modalProfileBio">No bio added yet.</div>
 
-      <!-- Direct Message Action Button -->
       <button class="btn primary" id="modalMessageBtn" style="width: 100%; background: #547538; color: white;">✉ Send Message</button>
       <button class="btn btn-sm" id="toggleEditBtn" style="width: 100%; display: none; background: #eee;">Edit Profile</button>
 
       <div class="edit-form" id="editForm">
-        <label>Profile Picture URL</label>
+        <label>
+          Profile Picture Image URL 
+          <span class="info-popover-wrapper">
+            <span class="info-popover-btn">What does this mean?</span>
+            <div class="info-popover-content">
+              <strong>How to get an image link:</strong>
+              <ul>
+                <li><strong>Google Images:</strong> Right-click photo preview → "Copy Image Address" (.jpg, .png, .webp).</li>
+                <li><strong>Personal Photos:</strong> Upload to Imgur (imgur.com/upload) or Postimages (postimages.org) and copy the Direct Link.</li>
+              </ul>
+            </div>
+          </span>
+        </label>
         <input type="text" id="editAvatarInput" placeholder="https://example.com/avatar.jpg">
 
         <label>Display Name</label>
@@ -224,7 +244,6 @@ textarea{ min-height:70px; margin-bottom:8px; }
   </div>
 </div>
 
-<!-- DM Drawer -->
 <div class="dm-drawer" id="dmDrawer">
   <div class="dm-header">
     <span id="dmTargetName">Chat</span>
