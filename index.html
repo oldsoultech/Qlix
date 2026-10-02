@@ -25,6 +25,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .user-card{ display:flex; flex-direction:column; gap:10px; align-items:center; text-align:center; }
 .author-link{ display:flex; gap:10px; align-items:center; cursor:pointer; }
 .author-link:hover strong{ text-decoration:underline; }
+.user-handle-sub{ font-size:11px; color:rgba(0,0,0,0.6); font-weight:normal; }
 
 /* Dynamic Welcome Hero Section */
 .welcome-banner {
@@ -79,6 +80,15 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .comment-input-wrap { display: flex; gap: 6px; margin-top: 4px; }
 .comment-input-wrap input { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
 
+/* Mention Styling */
+.mention-link {
+  color: #1e3799;
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: none;
+}
+.mention-link:hover { text-decoration: underline; }
+
 /* Notification Badge */
 .notif-badge {
   position: absolute; top: -4px; right: -4px; background: #e74c3c; color: white;
@@ -96,7 +106,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .auth-divider::before { margin-right: .5em; }
 .auth-divider::after { margin-left: .5em; }
 
-/* DM Drawer */
+/* Drawers */
 .dm-drawer {
   position: fixed; top: 0; right: -360px; width: 340px; height: 100vh;
   background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.3); z-index: 100;
@@ -174,10 +184,11 @@ textarea{ min-height:70px; margin-bottom:8px; }
 <header class="topbar">
   <div class="logo">Qlix 2 (ALPHA)</div>
   <div style="margin-left:auto; display:flex; gap:8px;">
-    <button class="btn" id="notifBtn" style="display:none;">
-      🔔 Direct Messages
+    <button class="btn" id="notifTabBtn" style="display:none;">
+      🔔 Notifications
       <span class="notif-badge" id="notifBadge">0</span>
     </button>
+    <button class="btn" id="dmTabBtn" style="display:none;">💬 DMs</button>
     <button class="btn primary" id="openAuthModalBtn">Sign In / Register</button>
     <button class="btn" id="signOutBtn" style="display:none;">Sign Out</button>
   </div>
@@ -187,7 +198,10 @@ textarea{ min-height:70px; margin-bottom:8px; }
   <aside>
     <div class="card user-card" id="userInfo" style="display:none;">
       <img id="userPic" class="profile-pic" style="width: 64px; height: 64px;" alt="Profile Picture">
-      <strong id="userName"></strong>
+      <div>
+        <strong id="userName"></strong>
+        <div id="userHandle" class="user-handle-sub"></div>
+      </div>
       <button class="btn primary btn-sm" id="viewMyProfileBtn">View My Profile</button>
     </div>
   </aside>
@@ -203,7 +217,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
     </div>
 
     <div class="card composer" id="composer" style="display:none;">
-      <textarea id="postText" placeholder="What's on your mind?"></textarea>
+      <textarea id="postText" placeholder="What's on your mind? Mention users with @handle!"></textarea>
       <button class="btn primary" id="postBtn">Post</button>
     </div>
     <div class="feed" id="feed"></div>
@@ -230,6 +244,8 @@ textarea{ min-height:70px; margin-bottom:8px; }
       <form class="auth-form" id="emailSignUpForm" style="display: none;">
         <label>Display Name</label>
         <input type="text" id="signUpName" placeholder="John Doe" required>
+        <label>Handle (@username)</label>
+        <input type="text" id="signUpHandle" placeholder="johndoe" required>
         <label>Email Address</label>
         <input type="email" id="signUpEmail" placeholder="you@example.com" required>
         <label>Password</label>
@@ -260,6 +276,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
 
     <div class="modal-body" style="padding-top: 45px;">
       <h3 id="modalProfileName" style="margin: 0;">User Name</h3>
+      <div id="modalProfileHandle" style="font-size:12px; color:#666;">@user</div>
       <div class="profile-bio" id="modalProfileBio">No bio added yet.</div>
 
       <button class="btn primary" id="modalMessageBtn" style="width: 100%; background: #547538; color: white;">✉ Send Message</button>
@@ -284,6 +301,9 @@ textarea{ min-height:70px; margin-bottom:8px; }
         <label>Display Name</label>
         <input type="text" id="editNameInput">
 
+        <label>Handle</label>
+        <input type="text" id="editHandleInput" placeholder="johndoe">
+
         <label>Bio</label>
         <textarea id="editBioInput" placeholder="Tell us about yourself..."></textarea>
 
@@ -297,13 +317,14 @@ textarea{ min-height:70px; margin-bottom:8px; }
   </div>
 </div>
 
+<!-- Drawer for DMs & Notifications -->
 <div class="dm-drawer" id="dmDrawer">
   <div class="dm-header">
-    <span id="dmTargetName">Chat</span>
+    <span id="dmTargetName">Drawer</span>
     <button class="btn btn-sm" id="closeDmBtn" style="background:#555; color:white;">✕ Close</button>
   </div>
   <div class="dm-body" id="dmBody"></div>
-  <div class="dm-footer" id="dmFooter">
+  <div class="dm-footer" id="dmFooter" style="display:none;">
     <input type="text" id="dmInput" placeholder="Type a message...">
     <button class="btn primary btn-sm" id="sendDmBtn">Send</button>
   </div>
@@ -338,14 +359,8 @@ let notifUnsubscribe = null;
 let welcomeInterval = null;
 const commentUnsubscribes = new Map();
 
-// Dynamic Welcome Greeting Logic
-const greetingsLoggedOut = [
-  "Welcome to Qlix!",
-  "Explore what's happening!",
-  "Connect & share on Qlix!",
-  "Glad you're here!"
-];
-
+// Rotating Welcome Greetings
+const greetingsLoggedOut = ["Welcome to Qlix!", "Explore what's happening!", "Connect & share on Qlix!", "Glad you're here!"];
 const greetingsLoggedIn = [
   (name) => `Welcome back, ${name}!`,
   (name) => `How's it going, ${name}?`,
@@ -354,7 +369,6 @@ const greetingsLoggedIn = [
 ];
 
 let greetingIndex = 0;
-
 function updateWelcomeGreeting() {
   const heading = document.getElementById("welcomeHeading");
   heading.style.opacity = "0";
@@ -363,8 +377,7 @@ function updateWelcomeGreeting() {
   setTimeout(() => {
     const displayName = currentUser ? (currentUser.displayName || currentUser.email) : "";
     if (currentUser && displayName) {
-      const template = greetingsLoggedIn[greetingIndex % greetingsLoggedIn.length];
-      heading.textContent = template(displayName);
+      heading.textContent = greetingsLoggedIn[greetingIndex % greetingsLoggedIn.length](displayName);
     } else {
       heading.textContent = greetingsLoggedOut[greetingIndex % greetingsLoggedOut.length];
     }
@@ -380,7 +393,61 @@ function startWelcomeRotation() {
   welcomeInterval = setInterval(updateWelcomeGreeting, 4500);
 }
 
-// Auth Modal Controls
+// Helper: Format text with @mentions
+function renderMentions(text) {
+  if (!text) return "";
+  return text.replace(/@([a-zA-Z0-9_]+)/g, (match, handle) => {
+    return `<span class="mention-link" data-handle="${handle}">@${handle}</span>`;
+  });
+}
+
+function bindMentionLinks(container) {
+  container.querySelectorAll(".mention-link").forEach(el => {
+    el.onclick = async (e) => {
+      e.stopPropagation();
+      const handle = el.getAttribute("data-handle");
+      const q = query(collection(db, "users"), where("handle", "==", handle.toLowerCase()));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const uDoc = snap.docs[0];
+        const uData = uDoc.data();
+        openUserProfile(uDoc.id, uData.displayName, uData.photoURL);
+      } else {
+        alert(`User @${handle} was not found.`);
+      }
+    };
+  });
+}
+
+// Mention Notification Trigger
+async function notifyMentions(text, postOrCommentId) {
+  if (!text || !currentUser) return;
+  const matches = text.match(/@([a-zA-Z0-9_]+)/g);
+  if (!matches) return;
+
+  const uniqueHandles = [...new Set(matches.map(m => m.slice(1).toLowerCase()))];
+  for (const h of uniqueHandles) {
+    const q = query(collection(db, "users"), where("handle", "==", h));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const targetUid = snap.docs[0].id;
+      if (targetUid !== currentUser.uid) {
+        await addDoc(collection(db, "notifications"), {
+          recipientId: targetUid,
+          senderId: currentUser.uid,
+          senderName: currentUser.displayName || currentUser.email,
+          type: "mention",
+          snippet: text,
+          postId: postOrCommentId,
+          timestamp: serverTimestamp(),
+          read: false
+        });
+      }
+    }
+  }
+}
+
+// Auth Controls
 const authModal = document.getElementById("authModal");
 const openAuthBtn = document.getElementById("openAuthModalBtn");
 const closeAuthBtn = document.getElementById("closeAuthModal");
@@ -409,53 +476,47 @@ document.getElementById("googleSignInBtn").onclick = async () => {
   try {
     await signInWithPopup(auth, googleProvider);
     authModal.classList.remove("open");
-  } catch (err) {
-    authErrorMsg.textContent = err.message;
-  }
+  } catch (err) { authErrorMsg.textContent = err.message; }
 };
 
 emailSignInForm.onsubmit = async (e) => {
   e.preventDefault();
-  const email = document.getElementById("signInEmail").value;
-  const password = document.getElementById("signInPassword").value;
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    await signInWithEmailAndPassword(auth, document.getElementById("signInEmail").value, document.getElementById("signInPassword").value);
     authModal.classList.remove("open");
-  } catch (err) {
-    authErrorMsg.textContent = err.message;
-  }
+  } catch (err) { authErrorMsg.textContent = err.message; }
 };
 
 emailSignUpForm.onsubmit = async (e) => {
   e.preventDefault();
   const name = document.getElementById("signUpName").value.trim();
+  const rawHandle = document.getElementById("signUpHandle").value.trim().replace(/^@/, "").toLowerCase();
   const email = document.getElementById("signUpEmail").value;
   const password = document.getElementById("signUpPassword").value;
 
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-    
     await updateProfile(user, { displayName: name });
     
     await setDoc(doc(db, "users", user.uid), {
       displayName: name,
+      handle: rawHandle || name.toLowerCase().replace(/\s+/g, ""),
       photoURL: "",
       bio: "",
       headerUrl: ""
     });
 
     authModal.classList.remove("open");
-  } catch (err) {
-    authErrorMsg.textContent = err.message;
-  }
+  } catch (err) { authErrorMsg.textContent = err.message; }
 };
 
 onAuthStateChanged(auth, async user => {
   currentUser = user;
   document.getElementById("openAuthModalBtn").style.display = user ? "none" : "inline-block";
   document.getElementById("signOutBtn").style.display = user ? "inline-block" : "none";
-  document.getElementById("notifBtn").style.display = user ? "inline-block" : "none";
+  document.getElementById("notifTabBtn").style.display = user ? "inline-block" : "none";
+  document.getElementById("dmTabBtn").style.display = user ? "inline-block" : "none";
   document.getElementById("composer").style.display = user ? "block" : "none";
   document.getElementById("userInfo").style.display = user ? "flex" : "none";
   
@@ -463,10 +524,13 @@ onAuthStateChanged(auth, async user => {
     const userRef = doc(db, "users", user.uid);
     const snap = await getDoc(userRef);
     let photoURL = user.photoURL;
+    let handle = "";
 
     if (!snap.exists()) {
+      handle = (user.displayName || "user").toLowerCase().replace(/\s+/g, "");
       await setDoc(userRef, {
         displayName: user.displayName || user.email,
+        handle: handle,
         photoURL: user.photoURL || "",
         bio: "",
         headerUrl: ""
@@ -474,10 +538,12 @@ onAuthStateChanged(auth, async user => {
     } else {
       const data = snap.data();
       if (data.photoURL) photoURL = data.photoURL;
+      handle = data.handle || "";
     }
 
     document.getElementById("userPic").src = photoURL || "https://via.placeholder.com/64";
     document.getElementById("userName").textContent = user.displayName || user.email;
+    document.getElementById("userHandle").textContent = handle ? `@${handle}` : "";
 
     listenForNotifications();
   } else {
@@ -494,7 +560,7 @@ document.getElementById("viewMyProfileBtn").onclick = () => {
   if (currentUser) openUserProfile(currentUser.uid, currentUser.displayName || currentUser.email, currentUser.photoURL);
 };
 
-// Open User Profile & Direct Message Routing
+// Profile Modal Handler
 async function openUserProfile(authorId, authorName, authorPic) {
   document.getElementById("editForm").style.display = "none";
   document.getElementById("toggleEditBtn").textContent = "Edit Profile";
@@ -503,34 +569,33 @@ async function openUserProfile(authorId, authorName, authorPic) {
   const userSnap = await getDoc(doc(db, "users", authorId));
   const userData = userSnap.exists() ? userSnap.data() : {};
 
-  const name = userData.displayName || authorName;
+  const name = userData.displayName || authorName || "User";
+  const handle = userData.handle ? `@${userData.handle}` : "";
   const pic = userData.photoURL || authorPic || "https://via.placeholder.com/70";
   const bio = userData.bio || "No bio added yet.";
   const headerUrl = userData.headerUrl || "";
 
   document.getElementById("modalProfilePic").src = pic;
   document.getElementById("modalProfileName").textContent = name;
+  document.getElementById("modalProfileHandle").textContent = handle;
   document.getElementById("modalProfileBio").textContent = bio;
-  
-  const bannerEl = document.getElementById("modalHeaderBanner");
-  bannerEl.style.backgroundImage = headerUrl ? `url('${headerUrl}')` : 'none';
+  document.getElementById("modalHeaderBanner").style.backgroundImage = headerUrl ? `url('${headerUrl}')` : 'none';
 
   const msgBtn = document.getElementById("modalMessageBtn");
   const editBtn = document.getElementById("toggleEditBtn");
 
-  // Send DM Action
   msgBtn.onclick = () => {
     document.getElementById("profileModal").classList.remove("open");
     openChat(authorId, name);
   };
 
-  // Profile View Logic (Self vs Other User)
   if (currentUser && currentUser.uid === authorId) {
     msgBtn.style.display = "none";
     editBtn.style.display = "block";
     
     document.getElementById("editAvatarInput").value = userData.photoURL || authorPic || "";
     document.getElementById("editNameInput").value = name;
+    document.getElementById("editHandleInput").value = userData.handle || "";
     document.getElementById("editBioInput").value = userData.bio || "";
     document.getElementById("editHeaderInput").value = headerUrl;
   } else {
@@ -541,10 +606,7 @@ async function openUserProfile(authorId, authorName, authorPic) {
   document.getElementById("profileModal").classList.add("open");
 }
 
-document.getElementById("closeProfileModal").onclick = () => {
-  document.getElementById("profileModal").classList.remove("open");
-};
-
+document.getElementById("closeProfileModal").onclick = () => document.getElementById("profileModal").classList.remove("open");
 document.getElementById("toggleEditBtn").onclick = () => {
   const form = document.getElementById("editForm");
   const isHidden = form.style.display === "none" || !form.style.display;
@@ -554,32 +616,28 @@ document.getElementById("toggleEditBtn").onclick = () => {
 
 document.getElementById("saveProfileBtn").onclick = async () => {
   if (!currentUser) return;
-  
-  const saveBtn = document.getElementById("saveProfileBtn");
   const statusEl = document.getElementById("uploadStatus");
-  saveBtn.disabled = true;
-  saveBtn.textContent = "Saving...";
 
   try {
     const photoURL = document.getElementById("editAvatarInput").value.trim();
     const newName = document.getElementById("editNameInput").value.trim();
+    const newHandle = document.getElementById("editHandleInput").value.trim().replace(/^@/, "").toLowerCase();
     const newBio = document.getElementById("editBioInput").value.trim();
     const newHeader = document.getElementById("editHeaderInput").value.trim();
 
     await setDoc(doc(db, "users", currentUser.uid), {
       displayName: newName || currentUser.email,
+      handle: newHandle,
       photoURL: photoURL,
       bio: newBio,
       headerUrl: newHeader
     }, { merge: true });
 
-    await updateProfile(currentUser, { 
-      displayName: newName || currentUser.email,
-      photoURL: photoURL 
-    });
+    await updateProfile(currentUser, { displayName: newName || currentUser.email, photoURL: photoURL });
 
     document.getElementById("userPic").src = photoURL || "https://via.placeholder.com/64";
     document.getElementById("userName").textContent = newName || currentUser.email;
+    document.getElementById("userHandle").textContent = newHandle ? `@${newHandle}` : "";
 
     statusEl.className = "status-msg success";
     statusEl.textContent = "Profile updated!";
@@ -588,45 +646,30 @@ document.getElementById("saveProfileBtn").onclick = async () => {
       openUserProfile(currentUser.uid, newName || currentUser.email, photoURL);
       fetchFeed();
     }, 600);
-
   } catch (err) {
-    console.error("Profile save error:", err);
     statusEl.className = "status-msg error";
     statusEl.textContent = "Error saving profile.";
-  } finally {
-    saveBtn.disabled = false;
-    saveBtn.textContent = "Save Changes";
   }
 };
 
+// Notification Listener
 function listenForNotifications() {
   if (!currentUser) return;
 
   const q = query(
-    collection(db, "direct_messages"),
-    where("participants", "array-contains", currentUser.uid)
+    collection(db, "notifications"),
+    where("recipientId", "==", currentUser.uid)
   );
 
   notifUnsubscribe = onSnapshot(q, (snapshot) => {
-    const unreadMap = new Map();
-
+    let unreadCount = 0;
     snapshot.forEach(doc => {
-      const data = doc.data();
-      if (data.senderId !== currentUser.uid) {
-        const otherId = data.senderId;
-        const existing = unreadMap.get(otherId);
-        
-        if (!existing || (data.timestamp?.toMillis() || 0) > (existing.timestamp?.toMillis() || 0)) {
-          unreadMap.set(otherId, data);
-        }
-      }
+      if (!doc.data().read) unreadCount++;
     });
 
     const notifBadge = document.getElementById("notifBadge");
-    const count = unreadMap.size;
-
-    if (count > 0) {
-      notifBadge.textContent = count;
+    if (unreadCount > 0) {
+      notifBadge.textContent = unreadCount;
       notifBadge.style.display = "inline-block";
     } else {
       notifBadge.style.display = "none";
@@ -634,27 +677,59 @@ function listenForNotifications() {
   });
 }
 
-document.getElementById("notifBtn").onclick = async () => {
+// Notifications Tab Trigger
+document.getElementById("notifTabBtn").onclick = async () => {
   if (!currentUser) return;
 
-  document.getElementById("dmTargetName").textContent = "Notifications & Messages";
+  document.getElementById("dmTargetName").textContent = "🔔 Notifications";
   document.getElementById("dmFooter").style.display = "none";
   const dmBody = document.getElementById("dmBody");
-  dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>Loading messages...</p>";
-
+  dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>Loading notifications...</p>";
   document.getElementById("dmDrawer").classList.add("open");
 
-  const q = query(
-    collection(db, "direct_messages"),
-    where("participants", "array-contains", currentUser.uid)
-  );
+  const q = query(collection(db, "notifications"), where("recipientId", "==", currentUser.uid));
+  const snapshot = await getDocs(q);
+  
+  dmBody.innerHTML = "";
+  if (snapshot.empty) {
+    dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>No notifications yet.</p>";
+    return;
+  }
 
+  const notifs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  notifs.sort((a,b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+
+  for (const n of notifs) {
+    const div = document.createElement("div");
+    div.className = "notif-item";
+    div.innerHTML = `
+      <div class="notif-title">📢 Mentioned by ${n.senderName}</div>
+      <div class="notif-snippet">${n.snippet}</div>
+    `;
+    div.onclick = () => {
+      openUserProfile(n.senderId, n.senderName, "");
+      setDoc(doc(db, "notifications", n.id), { read: true }, { merge: true });
+    };
+    dmBody.appendChild(div);
+  }
+};
+
+// DM List Trigger
+document.getElementById("dmTabBtn").onclick = async () => {
+  if (!currentUser) return;
+
+  document.getElementById("dmTargetName").textContent = "💬 Direct Messages";
+  document.getElementById("dmFooter").style.display = "none";
+  const dmBody = document.getElementById("dmBody");
+  dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>Loading conversations...</p>";
+  document.getElementById("dmDrawer").classList.add("open");
+
+  const q = query(collection(db, "direct_messages"), where("participants", "array-contains", currentUser.uid));
   const snapshot = await getDocs(q);
   const convos = new Map();
 
   snapshot.forEach(doc => {
     const data = doc.data();
-    // Identify the other participant's ID accurately
     const otherId = data.participants.find(id => id !== currentUser.uid);
     if (otherId) {
       const existing = convos.get(otherId);
@@ -673,10 +748,9 @@ document.getElementById("notifBtn").onclick = async () => {
   const sortedConvos = Array.from(convos.values()).sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
 
   for (const item of sortedConvos) {
-    // Correctly fetch and display the other user's name
     const userSnap = await getDoc(doc(db, "users", item.otherId));
     const userData = userSnap.exists() ? userSnap.data() : {};
-    const name = userData.displayName || "User";
+    const name = userData.displayName || (item.senderId !== currentUser.uid ? item.senderName : "User");
 
     const div = document.createElement("div");
     div.className = "notif-item";
@@ -689,21 +763,25 @@ document.getElementById("notifBtn").onclick = async () => {
   }
 };
 
-function openChat(targetUserId, targetUserName) {
+// Open Chat Drawer (Explicit Name Parameter)
+async function openChat(targetUserId, targetUserName) {
   if (!currentUser) return alert("Please sign in to message users.");
   if (currentUser.uid === targetUserId) return alert("You cannot DM yourself.");
 
+  let resolvedName = targetUserName;
+  if (!resolvedName || resolvedName === "User") {
+    const uSnap = await getDoc(doc(db, "users", targetUserId));
+    if (uSnap.exists()) resolvedName = uSnap.data().displayName || "User";
+  }
+
   activeChatUserId = targetUserId;
-  document.getElementById("dmTargetName").textContent = `Chat with ${targetUserName}`;
+  document.getElementById("dmTargetName").textContent = `Chat with ${resolvedName}`;
   document.getElementById("dmFooter").style.display = "flex";
   document.getElementById("dmDrawer").classList.add("open");
 
   if (dmUnsubscribe) dmUnsubscribe();
 
-  const q = query(
-    collection(db, "direct_messages"),
-    where("participants", "array-contains", currentUser.uid)
-  );
+  const q = query(collection(db, "direct_messages"), where("participants", "array-contains", currentUser.uid));
 
   dmUnsubscribe = onSnapshot(q, (snapshot) => {
     const dmBody = document.getElementById("dmBody");
@@ -712,9 +790,7 @@ function openChat(targetUserId, targetUserName) {
     const messages = [];
     snapshot.forEach(doc => {
       const data = doc.data();
-      if (data.participants.includes(targetUserId)) {
-        messages.push(data);
-      }
+      if (data.participants.includes(targetUserId)) messages.push(data);
     });
 
     messages.sort((a, b) => (a.timestamp?.toMillis() || Date.now()) - (b.timestamp?.toMillis() || Date.now()));
@@ -754,18 +830,13 @@ document.getElementById("sendDmBtn").onclick = async () => {
 
 async function deletePost(postId) {
   if (!confirm("Are you sure you want to delete this post?")) return;
-
   try {
     await deleteDoc(doc(db, "posts", postId));
     fetchFeed();
-  } catch (err) {
-    console.error("Error deleting post:", err);
-    alert("Failed to delete post.");
-  }
+  } catch (err) { alert("Failed to delete post."); }
 }
 
 async function fetchFeed() {
-  // Clear out any old comment listeners
   commentUnsubscribes.forEach(unsub => unsub());
   commentUnsubscribes.clear();
 
@@ -779,6 +850,7 @@ async function fetchFeed() {
   for (const data of docs) {
     let pic = data.authorPic || "https://via.placeholder.com/32";
     let name = data.authorName;
+    let handle = "";
 
     if (data.authorId) {
       const uSnap = await getDoc(doc(db, "users", data.authorId));
@@ -786,6 +858,7 @@ async function fetchFeed() {
         const uData = uSnap.data();
         if (uData.photoURL) pic = uData.photoURL;
         if (uData.displayName) name = uData.displayName;
+        if (uData.handle) handle = `@${uData.handle}`;
       }
     }
 
@@ -797,45 +870,38 @@ async function fetchFeed() {
       <div class="post-header">
         <div class="author-link">
           <img class="profile-pic" src="${pic}">
-          <strong>${name}</strong>
+          <div>
+            <strong>${name}</strong> ${handle ? `<span class="user-handle-sub">${handle}</span>` : ''}
+          </div>
         </div>
-        ${isAuthor ? `<button class="btn btn-sm btn-danger delete-post-btn" data-post-id="${data.id}">🗑️ Delete</button>` : ''}
+        ${isAuthor ? `<button class="btn btn-sm btn-danger delete-post-btn" data-post-id="${data.id}">🗑️️ Delete</button>` : ''}
       </div>
-      <p style="margin: 4px 0;">${data.text}</p>
+      <p style="margin: 4px 0;">${renderMentions(data.text)}</p>
       
       <div class="comments-section">
         <div class="comments-list" id="comments-${data.id}"></div>
         ${currentUser ? `
           <div class="comment-input-wrap">
-            <input type="text" id="commentInput-${data.id}" placeholder="Write a comment...">
+            <input type="text" id="commentInput-${data.id}" placeholder="Write a comment... mention with @handle">
             <button class="btn primary btn-sm comment-submit-btn" data-post-id="${data.id}">Reply</button>
           </div>
         ` : ''}
       </div>
     `;
 
-    const authorLink = div.querySelector(".author-link");
-    authorLink.onclick = () => openUserProfile(data.authorId, name, pic);
+    div.querySelector(".author-link").onclick = () => openUserProfile(data.authorId, name, pic);
+    bindMentionLinks(div);
 
     const deleteBtn = div.querySelector(".delete-post-btn");
-    if (deleteBtn) {
-      deleteBtn.onclick = (e) => {
-        const postId = e.target.getAttribute("data-post-id");
-        deletePost(postId);
-      };
-    }
+    if (deleteBtn) deleteBtn.onclick = (e) => deletePost(e.target.getAttribute("data-post-id"));
 
     feed.appendChild(div);
-
     listenToComments(data.id);
 
     if (currentUser) {
       const commentBtn = div.querySelector(`.comment-submit-btn`);
       if (commentBtn) {
-        commentBtn.onclick = (e) => {
-          const postId = e.target.getAttribute("data-post-id");
-          addComment(postId);
-        };
+        commentBtn.onclick = (e) => addComment(e.target.getAttribute("data-post-id"));
       }
     }
   }
@@ -855,6 +921,7 @@ function listenToComments(postId) {
     for (const c of comments) {
       let cPic = c.authorPic || "https://via.placeholder.com/24";
       let cName = c.authorName || "User";
+      let cHandle = "";
 
       if (c.authorId) {
         const uSnap = await getDoc(doc(db, "users", c.authorId));
@@ -862,6 +929,7 @@ function listenToComments(postId) {
           const uData = uSnap.data();
           if (uData.photoURL) cPic = uData.photoURL;
           if (uData.displayName) cName = uData.displayName;
+          if (uData.handle) cHandle = `@${uData.handle}`;
         }
       }
 
@@ -870,13 +938,17 @@ function listenToComments(postId) {
       item.innerHTML = `
         <img class="profile-pic" style="width: 24px; height: 24px;" src="${cPic}">
         <div class="comment-content">
-          <span class="comment-author">${cName}</span>
-          <span>${c.text}</span>
+          <div>
+            <span class="comment-author">${cName}</span>
+            ${cHandle ? `<span class="user-handle-sub">${cHandle}</span>` : ''}
+          </div>
+          <span>${renderMentions(c.text)}</span>
         </div>
       `;
 
       item.querySelector(".profile-pic").onclick = () => openUserProfile(c.authorId, cName, cPic);
       item.querySelector(".comment-author").onclick = () => openUserProfile(c.authorId, cName, cPic);
+      bindMentionLinks(item);
 
       commentsList.appendChild(item);
     }
@@ -893,7 +965,7 @@ async function addComment(postId) {
   if (!text || !currentUser) return;
 
   try {
-    await addDoc(collection(db, "posts", postId, "comments"), {
+    const docRef = await addDoc(collection(db, "posts", postId, "comments"), {
       text: text,
       authorName: currentUser.displayName || currentUser.email,
       authorId: currentUser.uid,
@@ -901,24 +973,25 @@ async function addComment(postId) {
       timestamp: serverTimestamp()
     });
 
+    await notifyMentions(text, docRef.id);
     input.value = "";
-  } catch (err) {
-    console.error("Error adding comment to subcollection:", err);
-  }
+  } catch (err) { console.error("Error adding comment:", err); }
 }
 
 document.getElementById("postBtn").onclick = async () => {
   const input = document.getElementById("postText");
-  if (!input.value.trim() || !currentUser) return;
+  const text = input.value.trim();
+  if (!text || !currentUser) return;
   
-  await addDoc(collection(db, "posts"), {
-    text: input.value.trim(),
+  const docRef = await addDoc(collection(db, "posts"), {
+    text: text,
     authorName: currentUser.displayName || currentUser.email,
     authorId: currentUser.uid,
     authorPic: currentUser.photoURL || "",
     timestamp: serverTimestamp()
   });
   
+  await notifyMentions(text, docRef.id);
   input.value = "";
   fetchFeed();
 };
