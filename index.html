@@ -26,6 +26,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .author-link{ display:flex; gap:10px; align-items:center; cursor:pointer; }
 .author-link:hover strong{ text-decoration:underline; }
 .user-handle-sub{ font-size:11px; color:rgba(0,0,0,0.6); font-weight:normal; }
+.post-timestamp{ font-size:10px; color:rgba(0,0,0,0.5); margin-left:4px; }
 
 /* Dynamic Welcome Hero Section */
 .welcome-banner {
@@ -74,7 +75,7 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .comments-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 6px; }
 .comments-list { display: flex; flex-direction: column; gap: 6px; }
 .comment-item { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; background: rgba(255,255,255,0.25); padding: 6px 10px; border-radius: 8px; }
-.comment-content { display: flex; flex-direction: column; gap: 2px; }
+.comment-content { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .comment-author { font-weight: bold; cursor: pointer; }
 .comment-author:hover { text-decoration: underline; }
 .comment-input-wrap { display: flex; gap: 6px; margin-top: 4px; }
@@ -358,6 +359,13 @@ let dmUnsubscribe = null;
 let notifUnsubscribe = null;
 let welcomeInterval = null;
 const commentUnsubscribes = new Map();
+
+// Helper to format Firebase timestamps to human-readable text
+function formatDate(timestamp) {
+  if (!timestamp) return "Just now";
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  return date.toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
 // Rotating Welcome Greetings
 const greetingsLoggedOut = ["Welcome to Qlix!", "Explore what's happening!", "Connect & share on Qlix!", "Glad you're here!"];
@@ -705,6 +713,7 @@ document.getElementById("notifTabBtn").onclick = async () => {
     div.innerHTML = `
       <div class="notif-title">📢 Mentioned by ${n.senderName}</div>
       <div class="notif-snippet">${n.snippet}</div>
+      <div class="post-timestamp">${formatDate(n.timestamp)}</div>
     `;
     div.onclick = () => {
       openUserProfile(n.senderId, n.senderName, "");
@@ -757,6 +766,7 @@ document.getElementById("dmTabBtn").onclick = async () => {
     div.innerHTML = `
       <div class="notif-title">💬 ${name}</div>
       <div class="notif-snippet">${item.text}</div>
+      <div class="post-timestamp">${formatDate(item.timestamp)}</div>
     `;
     div.onclick = () => openChat(item.otherId, name);
     dmBody.appendChild(div);
@@ -871,10 +881,12 @@ async function fetchFeed() {
         <div class="author-link">
           <img class="profile-pic" src="${pic}">
           <div>
-            <strong>${name}</strong> ${handle ? `<span class="user-handle-sub">${handle}</span>` : ''}
+            <strong>${name}</strong> 
+            ${handle ? `<span class="user-handle-sub">${handle}</span>` : ''}
+            <span class="post-timestamp">• ${formatDate(data.timestamp)}</span>
           </div>
         </div>
-        ${isAuthor ? `<button class="btn btn-sm btn-danger delete-post-btn" data-post-id="${data.id}">🗑️️ Delete</button>` : ''}
+        ${isAuthor ? `<button class="btn btn-sm btn-danger delete-post-btn" data-post-id="${data.id}">🗑 Delete</button>` : ''}
       </div>
       <p style="margin: 4px 0;">${renderMentions(data.text)}</p>
       
@@ -912,7 +924,7 @@ function listenToComments(postId) {
   if (!commentsList) return;
 
   const commentsRef = collection(db, "posts", postId, "comments");
-  
+
   const unsub = onSnapshot(commentsRef, async (snapshot) => {
     commentsList.innerHTML = "";
     const comments = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -941,6 +953,7 @@ function listenToComments(postId) {
           <div>
             <span class="comment-author">${cName}</span>
             ${cHandle ? `<span class="user-handle-sub">${cHandle}</span>` : ''}
+            <span class="post-timestamp">• ${formatDate(c.timestamp)}</span>
           </div>
           <span>${renderMentions(c.text)}</span>
         </div>
