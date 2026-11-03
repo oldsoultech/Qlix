@@ -121,9 +121,10 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .dm-header { padding: 14px; background: #333; color: white; display: flex; justify-content: space-between; align-items: center; }
 .dm-body { flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: #f5f5f5; }
 .dm-footer { padding: 10px; background: #eee; display: flex; gap: 8px; }
-.dm-bubble { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.3; }
+.dm-bubble { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.3; display: flex; flex-direction: column; gap: 2px; }
 .dm-bubble.sent { align-self: flex-end; background: #547538; color: white; }
 .dm-bubble.received { align-self: flex-start; background: #e0e0e0; color: black; }
+.dm-time { font-size: 9px; opacity: 0.7; align-self: flex-end; margin-top: 2px; }
 
 /* DM List & Notification Items */
 .notif-item, .dm-list-item {
@@ -355,7 +356,10 @@ textarea{ min-height:70px; margin-bottom:8px; }
 <div class="dm-drawer" id="dmDrawer">
   <div class="dm-header">
     <span id="dmTargetName">Drawer</span>
-    <button class="btn btn-sm" id="closeDmBtn" style="background:#555; color:white;">✕ Close</button>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button class="btn btn-sm btn-danger" id="clearNotifsBtn" style="display:none;">Clear All</button>
+      <button class="btn btn-sm" id="closeDmBtn" style="background:#555; color:white;">✕ Close</button>
+    </div>
   </div>
   <div class="dm-body" id="dmBody"></div>
   <div class="dm-footer" id="dmFooter" style="display:none;">
@@ -718,6 +722,7 @@ function openChat(targetUserId, targetUserName) {
   activeChatUserId = targetUserId;
 
   document.getElementById("dmTargetName").textContent = `💬 ${targetUserName}`;
+  document.getElementById("clearNotifsBtn").style.display = "none";
   document.getElementById("dmFooter").style.display = "flex";
   const dmBody = document.getElementById("dmBody");
   dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>Loading messages...</p>";
@@ -740,7 +745,12 @@ function openChat(targetUserId, targetUserName) {
     msgs.forEach(m => {
       const bubble = document.createElement("div");
       bubble.className = `dm-bubble ${m.senderId === currentUser.uid ? 'sent' : 'received'}`;
-      bubble.textContent = m.text;
+      
+      const timeStr = m.timestamp ? formatDate(m.timestamp) : "Just now";
+      bubble.innerHTML = `
+        <div>${m.text}</div>
+        <div class="dm-time">${timeStr}</div>
+      `;
       dmBody.appendChild(bubble);
     });
     dmBody.scrollTop = dmBody.scrollHeight;
@@ -775,86 +785,139 @@ document.getElementById("sendDmBtn").onclick = async () => {
   });
 };
 
-document.getElementById("closeDmBtn").onclick = () => {
-  document.getElementById("dmDrawer").classList.remove("open");
+// Open Notifications Drawer
+function openNotificationsDrawer() {
+  if (!currentUser) return;
+
+  document.getElementById("dmTargetName").textContent = "🔔 Notifications";
+  document.getElementById("clearNotifsBtn").style.display = "inline-block";
+  document.getElementById("dmFooter").style.display = "none";
+  const dmBody = document.getElementById("dmBody");
+  dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>Loading notifications...</p>";
+  document.getElementById("dmDrawer").classList.add("open");
+
+  const q = query(collection(db, "notifications"), where("recipientId", "==", currentUser.uid));
+
+  getDocs(q).then(snapshot => {
+    snapshot.docs.forEach(d => {
+      if (!d.data().read) {
+        updateDoc(doc(db, "notifications", d.id), { read: true });
+      }
+    });
+  });
+
+  if (notifUnsubscribe) notifUnsubscribe();
+
+  notifUnsubscribe = onSnapshot(q, (snapshot) => {
+    const notifs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    notifs.sort((a,b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+
+    dmBody.innerHTML = "";
+    if (notifs.length === 0) {
+      dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>No notifications yet.</p>";
+      return;
+    }
+
+    notifs.forEach(n => {
+      const item = document.createElement("div");
+      item.className = `notif-item ${n.type === 'dm' ? 'notif-dm' : ''}`;
+      
+      let titleText = `${n.senderName} mentioned you`;
+      if (n.type === "dm") titleText = `💬 New DM from ${n.senderName}`;
+
+      item.innerHTML = `
+        <div class="notif-title">${titleText}</div>
+        <div class="notif-snippet">${n.snippet || ''}</div>
+        <div style="font-size:10px; color:#999;">${formatDate(n.timestamp)}</div>
+      `;
+
+      item.onclick = () => {
+        if (n.type === "dm") {
+          openChat(n.senderId, n.senderName);
+        } else if (n.postId) {
+          document.getElementById("dmDrawer").classList.remove("open");
+          const targetPost = document.getElementById(`post-${n.postId}`);
+          if (targetPost) targetPost.scrollIntoView({ behavior: "smooth" });
+        }
+      };
+
+      dmBody.appendChild(item);
+    });
+  });
+}
+
+// Clear All Notifications Handler
+document.getElementById("clearNotifsBtn").onclick = async () => {
+  if (!currentUser) return;
+  const q = query(collection(db, "notifications"), where("recipientId", "==", currentUser.uid));
+  const snap = await getDocs(q);
+  const deletePromises = snap.docs.map(d => deleteDoc(doc(db, "notifications", d.id)));
+  await Promise.all(deletePromises);
 };
 
-// Render Conversations List in DM Tab
-async function loadDMList() {
+// Open Direct Messages Drawer
+function openDmsDrawer() {
   if (!currentUser) return;
-  document.getElementById("dmTargetName").textContent = "💬 Direct Messages";
-  document.getElementById("dmFooter").style.display = "none";
 
+  document.getElementById("dmTargetName").textContent = "💬 Direct Messages";
+  document.getElementById("clearNotifsBtn").style.display = "none";
+  document.getElementById("dmFooter").style.display = "none";
   const dmBody = document.getElementById("dmBody");
   dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>Loading conversations...</p>";
   document.getElementById("dmDrawer").classList.add("open");
 
   const q = query(collection(db, "direct_messages"), where("participants", "array-contains", currentUser.uid));
-  const snap = await getDocs(q);
 
-  dmBody.innerHTML = "";
-  if (snap.empty) {
-    dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>No message conversations found.</p>";
-    return;
-  }
+  onSnapshot(q, async (snapshot) => {
+    const chatsMap = new Map();
 
-  // Group messages by target user ID
-  const conversationsMap = new Map();
-  snap.docs.forEach(d => {
-    const data = d.data();
-    const partnerId = data.participants.find(id => id !== currentUser.uid);
-    if (partnerId) {
-      if (!conversationsMap.has(partnerId)) {
-        conversationsMap.set(partnerId, []);
+    for (const d of snapshot.docs) {
+      const data = d.data();
+      const otherId = data.participants.find(p => p !== currentUser.uid);
+      if (!otherId) continue;
+
+      const time = data.timestamp?.toMillis() || 0;
+      if (!chatsMap.has(otherId) || chatsMap.get(otherId).timestamp < time) {
+        chatsMap.set(otherId, { ...data, otherId, timestamp: time });
       }
-      conversationsMap.get(partnerId).push(data);
+    }
+
+    const conversations = Array.from(chatsMap.values());
+    conversations.sort((a,b) => b.timestamp - a.timestamp);
+
+    dmBody.innerHTML = "";
+    if (conversations.length === 0) {
+      dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>No direct messages yet.</p>";
+      return;
+    }
+
+    for (const conv of conversations) {
+      const otherSnap = await getDoc(doc(db, "users", conv.otherId));
+      const otherData = otherSnap.exists() ? otherSnap.data() : {};
+      const otherName = otherData.displayName || "User";
+
+      const item = document.createElement("div");
+      item.className = "dm-list-item";
+      item.innerHTML = `
+        <div class="dm-user-title">${otherName}</div>
+        <div class="dm-last-snippet">${conv.text}</div>
+        <div style="font-size:9px; color:#999;">${formatDate(conv.timestamp)}</div>
+      `;
+
+      item.onclick = () => openChat(conv.otherId, otherName);
+      dmBody.appendChild(item);
     }
   });
-
-  if (conversationsMap.size === 0) {
-    dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>No message conversations found.</p>";
-    return;
-  }
-
-  for (const [partnerId, msgs] of conversationsMap.entries()) {
-    msgs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-    const latestMsg = msgs[0];
-
-    const partnerSnap = await getDoc(doc(db, "users", partnerId));
-    const partnerData = partnerSnap.exists() ? partnerSnap.data() : {};
-    const partnerName = partnerData.displayName || "User";
-
-    const item = document.createElement("div");
-    item.className = "dm-list-item";
-    item.innerHTML = `
-      <div class="dm-user-title">${partnerName}</div>
-      <div class="dm-last-snippet">${latestMsg.senderId === currentUser.uid ? 'You: ' : ''}${latestMsg.text}</div>
-      <div style="font-size:10px; color:#999;">${formatDate(latestMsg.timestamp)}</div>
-    `;
-
-    item.onclick = () => openChat(partnerId, partnerName);
-    dmBody.appendChild(item);
-  }
 }
 
-document.getElementById("dmTabBtn").onclick = () => {
-  loadDMList();
-};
-
-// Notification Feed Drawer
-function listenToNotifications() {
+// Notifications Badge Listener
+function listenForNotifications() {
   if (!currentUser) return;
-  const q = query(collection(db, "notifications"), where("recipientId", "==", currentUser.uid));
-
-  if (notifUnsubscribe) notifUnsubscribe();
-
-  notifUnsubscribe = onSnapshot(q, (snap) => {
-    const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const unread = notifs.filter(n => !n.read).length;
-
+  const q = query(collection(db, "notifications"), where("recipientId", "==", currentUser.uid), where("read", "==", false));
+  onSnapshot(q, (snapshot) => {
     const badge = document.getElementById("notifBadge");
-    if (unread > 0) {
-      badge.textContent = unread;
+    if (snapshot.size > 0) {
+      badge.textContent = snapshot.size;
       badge.style.display = "inline-block";
     } else {
       badge.style.display = "none";
@@ -862,119 +925,69 @@ function listenToNotifications() {
   });
 }
 
-document.getElementById("notifTabBtn").onclick = async () => {
-  if (!currentUser) return;
-  document.getElementById("dmTargetName").textContent = "🔔 Notifications";
-  document.getElementById("dmFooter").style.display = "none";
-  
-  const dmBody = document.getElementById("dmBody");
-  dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>Loading notifications...</p>";
-  document.getElementById("dmDrawer").classList.add("open");
+// Auth State Handling
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
+  const userInfo = document.getElementById("userInfo");
+  const composer = document.getElementById("composer");
+  const openAuthModalBtn = document.getElementById("openAuthModalBtn");
+  const signOutBtn = document.getElementById("signOutBtn");
+  const notifTabBtn = document.getElementById("notifTabBtn");
+  const dmTabBtn = document.getElementById("dmTabBtn");
 
-  const q = query(collection(db, "notifications"), where("recipientId", "==", currentUser.uid));
-  const snap = await getDocs(q);
-
-  dmBody.innerHTML = "";
-  if (snap.empty) {
-    dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>No notifications yet.</p>";
-    return;
-  }
-
-  const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  notifs.sort((a,b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-
-  notifs.forEach(n => {
-    const item = document.createElement("div");
-    const isDm = n.type === "dm";
-    item.className = `notif-item ${isDm ? 'notif-dm' : ''}`;
+  if (user) {
+    let userSnap = await getDoc(doc(db, "users", user.uid));
     
-    item.innerHTML = `
-      <div class="notif-title">${isDm ? '💬 Message from ' : ''}${n.senderName} ${isDm ? '' : 'mentioned you'}</div>
-      <div class="notif-snippet">"${n.snippet}"</div>
-      <div style="font-size:10px; color:#999;">${formatDate(n.timestamp)}</div>
-    `;
-
-    item.onclick = async () => {
-      await updateDoc(doc(db, "notifications", n.id), { read: true });
-      
-      if (isDm) {
-        openChat(n.senderId, n.senderName);
-      } else {
-        document.getElementById("dmDrawer").classList.remove("open");
-        const targetPost = document.getElementById(`post-${n.postId}`);
-        if (targetPost) targetPost.scrollIntoView({ behavior: 'smooth' });
-      }
-    };
-
-    dmBody.appendChild(item);
-  });
-};
-
-// Profile Edit Form Handlers
-document.getElementById("toggleEditBtn").onclick = () => {
-  const editForm = document.getElementById("editForm");
-  const isHidden = editForm.style.display === "none" || editForm.style.display === "";
-  editForm.style.display = isHidden ? "flex" : "none";
-  document.getElementById("toggleEditBtn").textContent = isHidden ? "Cancel Edit" : "Edit Profile";
-};
-
-document.getElementById("saveProfileBtn").onclick = async () => {
-  if (!currentUser) return;
-
-  const newAvatar = document.getElementById("editAvatarInput").value.trim();
-  const newName = document.getElementById("editNameInput").value.trim();
-  const newHandle = document.getElementById("editHandleInput").value.trim().toLowerCase();
-  const newBio = document.getElementById("editBioInput").value.trim();
-  const newHeader = document.getElementById("editHeaderInput").value.trim();
-  const status = document.getElementById("uploadStatus");
-
-  status.className = "status-msg";
-  status.textContent = "Saving changes...";
-
-  try {
-    if (newHandle) {
-      const q = query(collection(db, "users"), where("handle", "==", newHandle));
-      const snap = await getDocs(q);
-      const isTaken = snap.docs.some(d => d.id !== currentUser.uid);
-      if (isTaken) {
-        status.className = "status-msg error";
-        status.textContent = "Handle is already taken. Choose another.";
-        return;
-      }
+    if (!userSnap.exists()) {
+      const generatedHandle = (user.displayName || user.email.split("@")[0]).toLowerCase().replace(/[^a-z0-9_]/g, "");
+      await setDoc(doc(db, "users", user.uid), {
+        displayName: user.displayName || user.email,
+        email: user.email,
+        handle: generatedHandle,
+        photoURL: user.photoURL || "",
+        bio: "",
+        headerUrl: ""
+      });
+      userSnap = await getDoc(doc(db, "users", user.uid));
     }
 
-    if (newName) {
-      await updateProfile(currentUser, { displayName: newName, photoURL: newAvatar });
-    }
+    const userData = userSnap.data() || {};
+    
+    document.getElementById("userPic").src = userData.photoURL || user.photoURL || "https://via.placeholder.com/64";
+    document.getElementById("userName").textContent = userData.displayName || user.email;
+    document.getElementById("userHandle").textContent = userData.handle ? `@${userData.handle}` : "";
 
-    await setDoc(doc(db, "users", currentUser.uid), {
-      displayName: newName || currentUser.displayName,
-      handle: newHandle,
-      photoURL: newAvatar,
-      bio: newBio,
-      headerUrl: newHeader,
-      email: currentUser.email
-    }, { merge: true });
+    userInfo.style.display = "flex";
+    composer.style.display = "block";
+    openAuthModalBtn.style.display = "none";
+    signOutBtn.style.display = "inline-block";
+    notifTabBtn.style.display = "inline-block";
+    dmTabBtn.style.display = "inline-block";
 
-    status.className = "status-msg success";
-    status.textContent = "Profile updated successfully!";
-    openUserProfile(currentUser.uid);
-  } catch (err) {
-    status.className = "status-msg error";
-    status.textContent = err.message;
+    listenForNotifications();
+  } else {
+    userInfo.style.display = "none";
+    composer.style.display = "none";
+    openAuthModalBtn.style.display = "inline-block";
+    signOutBtn.style.display = "none";
+    notifTabBtn.style.display = "none";
+    dmTabBtn.style.display = "none";
   }
-};
 
-// Post Handler
+  startWelcomeRotation();
+  fetchFeed();
+});
+
+// Post creation
 document.getElementById("postBtn").onclick = async () => {
-  const textInput = document.getElementById("postText");
-  const text = textInput.value.trim();
+  const postText = document.getElementById("postText");
+  const text = postText.value.trim();
   if (!text || !currentUser) return;
 
   const userSnap = await getDoc(doc(db, "users", currentUser.uid));
   const userData = userSnap.exists() ? userSnap.data() : {};
 
-  const postRef = await addDoc(collection(db, "posts"), {
+  const docRef = await addDoc(collection(db, "posts"), {
     authorId: currentUser.uid,
     authorName: userData.displayName || currentUser.displayName || currentUser.email,
     authorPic: userData.photoURL || currentUser.photoURL || "",
@@ -982,32 +995,18 @@ document.getElementById("postBtn").onclick = async () => {
     timestamp: serverTimestamp()
   });
 
-  notifyMentions(text, postRef.id);
-  textInput.value = "";
+  notifyMentions(text, docRef.id);
+  postText.value = "";
   fetchFeed();
 };
 
-// Authentication Forms & Tabs
-const tabSignIn = document.getElementById("tabSignIn");
-const tabSignUp = document.getElementById("tabSignUp");
-const emailSignInForm = document.getElementById("emailSignInForm");
-const emailSignUpForm = document.getElementById("emailSignUpForm");
-const authErrorMsg = document.getElementById("authErrorMsg");
+// UI Buttons Event Listeners
+document.getElementById("notifTabBtn").onclick = openNotificationsDrawer;
+document.getElementById("dmTabBtn").onclick = openDmsDrawer;
+document.getElementById("closeDmBtn").onclick = () => document.getElementById("dmDrawer").classList.remove("open");
 
-tabSignIn.onclick = () => {
-  tabSignIn.classList.add("active");
-  tabSignUp.classList.remove("active");
-  emailSignInForm.style.display = "flex";
-  emailSignUpForm.style.display = "none";
-  authErrorMsg.textContent = "";
-};
-
-tabSignUp.onclick = () => {
-  tabSignUp.classList.add("active");
-  tabSignIn.classList.remove("active");
-  emailSignUpForm.style.display = "flex";
-  emailSignInForm.style.display = "none";
-  authErrorMsg.textContent = "";
+document.getElementById("viewMyProfileBtn").onclick = () => {
+  if (currentUser) openUserProfile(currentUser.uid);
 };
 
 document.getElementById("openAuthModalBtn").onclick = () => {
@@ -1022,41 +1021,58 @@ document.getElementById("closeProfileModal").onclick = () => {
   document.getElementById("profileModal").classList.remove("open");
 };
 
-document.getElementById("viewMyProfileBtn").onclick = () => {
-  if (currentUser) openUserProfile(currentUser.uid);
+document.getElementById("signOutBtn").onclick = () => signOut(auth);
+
+// Toggle Auth Tabs
+document.getElementById("tabSignIn").onclick = () => {
+  document.getElementById("tabSignIn").classList.add("active");
+  document.getElementById("tabSignUp").classList.remove("active");
+  document.getElementById("emailSignInForm").style.display = "flex";
+  document.getElementById("emailSignUpForm").style.display = "none";
+  document.getElementById("authErrorMsg").textContent = "";
 };
 
-document.getElementById("appLogo").onclick = () => {
-  fetchFeed();
+document.getElementById("tabSignUp").onclick = () => {
+  document.getElementById("tabSignUp").classList.add("active");
+  document.getElementById("tabSignIn").classList.remove("active");
+  document.getElementById("emailSignUpForm").style.display = "flex";
+  document.getElementById("emailSignInForm").style.display = "none";
+  document.getElementById("authErrorMsg").textContent = "";
 };
 
-// Authentication Processing
-emailSignInForm.onsubmit = async (e) => {
+// Auth Actions
+document.getElementById("googleSignInBtn").onclick = async () => {
+  try {
+    await signInWithPopup(auth, googleProvider);
+    document.getElementById("authModal").classList.remove("open");
+  } catch (err) {
+    document.getElementById("authErrorMsg").textContent = err.message;
+  }
+};
+
+document.getElementById("emailSignInForm").onsubmit = async (e) => {
   e.preventDefault();
-  authErrorMsg.textContent = "";
   const email = document.getElementById("signInEmail").value;
   const password = document.getElementById("signInPassword").value;
   try {
     await signInWithEmailAndPassword(auth, email, password);
     document.getElementById("authModal").classList.remove("open");
   } catch (err) {
-    authErrorMsg.textContent = err.message;
+    document.getElementById("authErrorMsg").textContent = err.message;
   }
 };
 
-emailSignUpForm.onsubmit = async (e) => {
+document.getElementById("emailSignUpForm").onsubmit = async (e) => {
   e.preventDefault();
-  authErrorMsg.textContent = "";
-  const name = document.getElementById("signUpName").value;
-  const handle = document.getElementById("signUpHandle").value.trim().toLowerCase();
+  const name = document.getElementById("signUpName").value.trim();
+  const handle = document.getElementById("signUpHandle").value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
   const email = document.getElementById("signUpEmail").value;
   const password = document.getElementById("signUpPassword").value;
 
   try {
-    const q = query(collection(db, "users"), where("handle", "==", handle));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      authErrorMsg.textContent = "Handle is already taken. Please choose another.";
+    const handleSnap = await getDocs(query(collection(db, "users"), where("handle", "==", handle)));
+    if (!handleSnap.empty) {
+      document.getElementById("authErrorMsg").textContent = "Handle is already taken. Choose another.";
       return;
     }
 
@@ -1074,67 +1090,75 @@ emailSignUpForm.onsubmit = async (e) => {
 
     document.getElementById("authModal").classList.remove("open");
   } catch (err) {
-    authErrorMsg.textContent = err.message;
+    document.getElementById("authErrorMsg").textContent = err.message;
   }
 };
 
-document.getElementById("googleSignInBtn").onclick = async () => {
+// Toggle Profile Edit Form
+document.getElementById("toggleEditBtn").onclick = () => {
+  const form = document.getElementById("editForm");
+  const isHidden = form.style.display === "none" || !form.style.display;
+  form.style.display = isHidden ? "flex" : "none";
+  document.getElementById("toggleEditBtn").textContent = isHidden ? "Cancel Editing" : "Edit Profile";
+};
+
+// Save Profile Updates
+document.getElementById("saveProfileBtn").onclick = async () => {
+  if (!currentUser) return;
+
+  const newAvatar = document.getElementById("editAvatarInput").value.trim();
+  const newName = document.getElementById("editNameInput").value.trim();
+  const newHandle = document.getElementById("editHandleInput").value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+  const newBio = document.getElementById("editBioInput").value.trim();
+  const newHeader = document.getElementById("editHeaderInput").value.trim();
+  const status = document.getElementById("uploadStatus");
+
+  status.className = "status-msg";
+  status.textContent = "Saving changes...";
+
   try {
-    const res = await signInWithPopup(auth, googleProvider);
-    const uDoc = await getDoc(doc(db, "users", res.user.uid));
-    if (!uDoc.exists()) {
-      const handle = res.user.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "");
-      await setDoc(doc(db, "users", res.user.uid), {
-        displayName: res.user.displayName,
-        handle: handle,
-        email: res.user.email,
-        photoURL: res.user.photoURL,
-        bio: "",
-        headerUrl: ""
-      });
+    const currentSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const currentData = currentSnap.exists() ? currentSnap.data() : {};
+
+    if (newHandle && newHandle !== currentData.handle) {
+      const handleSnap = await getDocs(query(collection(db, "users"), where("handle", "==", newHandle)));
+      if (!handleSnap.empty) {
+        status.className = "status-msg error";
+        status.textContent = "Handle is already taken.";
+        return;
+      }
     }
-    document.getElementById("authModal").classList.remove("open");
+
+    await setDoc(doc(db, "users", currentUser.uid), {
+      displayName: newName || currentUser.displayName || currentUser.email,
+      handle: newHandle || currentData.handle || "",
+      photoURL: newAvatar,
+      bio: newBio,
+      headerUrl: newHeader,
+      email: currentUser.email
+    }, { merge: true });
+
+    if (newName) {
+      await updateProfile(currentUser, { displayName: newName, photoURL: newAvatar });
+    }
+
+    status.className = "status-msg success";
+    status.textContent = "Profile updated successfully!";
+
+    setTimeout(() => {
+      openUserProfile(currentUser.uid);
+      
+      document.getElementById("userPic").src = newAvatar || currentUser.photoURL || "https://via.placeholder.com/64";
+      document.getElementById("userName").textContent = newName || currentUser.email;
+      document.getElementById("userHandle").textContent = newHandle ? `@${newHandle}` : "";
+    }, 800);
+
   } catch (err) {
-    authErrorMsg.textContent = err.message;
+    status.className = "status-msg error";
+    status.textContent = "Error updating profile: " + err.message;
   }
 };
-
-document.getElementById("signOutBtn").onclick = () => signOut(auth);
-
-// Auth State Observer
-onAuthStateChanged(auth, async (user) => {
-  currentUser = user;
-  startWelcomeRotation();
-
-  if (user) {
-    document.getElementById("openAuthModalBtn").style.display = "none";
-    document.getElementById("signOutBtn").style.display = "inline-block";
-    document.getElementById("notifTabBtn").style.display = "inline-block";
-    document.getElementById("dmTabBtn").style.display = "inline-block";
-    document.getElementById("userInfo").style.display = "flex";
-    document.getElementById("composer").style.display = "block";
-
-    const uDoc = await getDoc(doc(db, "users", user.uid));
-    const uData = uDoc.exists() ? uDoc.data() : {};
-
-    document.getElementById("userName").textContent = uData.displayName || user.displayName || user.email;
-    document.getElementById("userHandle").textContent = uData.handle ? `@${uData.handle}` : "";
-    document.getElementById("userPic").src = uData.photoURL || user.photoURL || "https://via.placeholder.com/64";
-
-    listenToNotifications();
-  } else {
-    document.getElementById("openAuthModalBtn").style.display = "inline-block";
-    document.getElementById("signOutBtn").style.display = "none";
-    document.getElementById("notifTabBtn").style.display = "none";
-    document.getElementById("dmTabBtn").style.display = "none";
-    document.getElementById("userInfo").style.display = "none";
-    document.getElementById("composer").style.display = "none";
-
-    if (notifUnsubscribe) notifUnsubscribe();
-  }
-
-  fetchFeed();
-});
 </script>
+
 </body>
 </html>
