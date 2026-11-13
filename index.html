@@ -239,6 +239,8 @@ body.dark .dm-bubble.received{ background:#333; color:#eee; }
 body.dark .profile-bio, body.dark .auth-form label, body.dark .edit-form label{ color:#ccc; }
 body.dark .edit-form input, body.dark .edit-form textarea{ background:#333; color:#eee; }
 body.dark .mention-link, body.dark .tag-link{ color:#8ab4ff; }
+#typingIndicator{ display:none; padding:2px 14px; font-size:11px; font-style:italic; color:#777; background:#f5f5f5; }
+body.dark #typingIndicator{ background:#161616; color:#aaa; }
 </style>
 </head>
 <body>
@@ -375,6 +377,8 @@ body.dark .mention-link, body.dark .tag-link{ color:#8ab4ff; }
 
       <button class="btn btn-sm" id="toggleEditBtn" style="width: 100%; display: none; background: #eee;">Edit Profile</button>
 
+      <button class="btn btn-sm" id="modalBlockBtn" style="width:100%; display:none; background:#eee;">Block user</button>
+
       <div class="edit-form" id="editForm">
         <label>
           Profile Picture Image URL 
@@ -426,6 +430,7 @@ body.dark .mention-link, body.dark .tag-link{ color:#8ab4ff; }
     </div>
   </div>
   <div class="dm-body" id="dmBody"></div>
+  <div id="typingIndicator">typing…</div>
   <div class="dm-footer" id="dmFooter" style="display:none;">
     <input type="text" id="dmInput" placeholder="Type a message...">
     <button class="btn primary btn-sm" id="sendDmBtn">Send</button>
@@ -489,10 +494,12 @@ function toast(msg) {
 const extractTags = t => [...new Set((t.match(/#([a-zA-Z0-9_]+)/g) || []).map(x => x.slice(1).toLowerCase()))];
 async function notify(recipientId, type, snippet, postId) {
   if (!currentUser || !recipientId || recipientId === currentUser.uid) return;
-  await addDoc(collection(db, "notifications"), {
-    recipientId, senderId: currentUser.uid, senderName: currentUser.displayName || currentUser.email,
-    type, snippet: snippet || "", postId: postId || null, timestamp: serverTimestamp(), read: false
-  });
+  try {
+    await addDoc(collection(db, "notifications"), {
+      recipientId, senderId: currentUser.uid, senderName: currentUser.displayName || currentUser.email,
+      type, snippet: snippet || "", postId: postId || null, timestamp: serverTimestamp(), read: false
+    });
+  } catch (e) { /* blocked or offline: ignore */ }
 }
 async function markDmRead(senderId) {
   const s = await getDocs(query(collection(db, "notifications"), where("recipientId", "==", currentUser.uid), where("read", "==", false)));
@@ -615,6 +622,7 @@ function createPostCard(post) {
   const card = document.createElement("div");
   card.className = "post";
   card.id = `post-${post.id}`;
+  card.dataset.author = post.authorId;
   const isAuthor = currentUser && currentUser.uid === post.authorId;
 
   card.innerHTML = `
@@ -646,6 +654,7 @@ function createPostCard(post) {
   card.querySelector(".author-link").onclick = () => openUserProfile(post.authorId);
   const content = card.querySelector(".post-content");
   bindMentionLinks(card);
+  if (blockedIds.has(post.authorId)) card.style.display = "none";
 
   if (isAuthor) {
     card.querySelector(".delete-btn").onclick = async () => {
@@ -732,6 +741,8 @@ function createPostCard(post) {
       const canDeleteComment = (currentUser && currentUser.uid === c.authorId) || isAuthor;
       const cDiv = document.createElement("div");
       cDiv.className = "comment-item";
+      cDiv.dataset.author = c.authorId;
+      if (blockedIds.has(c.authorId)) cDiv.style.display = "none";
       cDiv.innerHTML = `
         <img src="${esc(avatarSrc(c.authorPic, c.authorName))}" alt="${esc(c.authorName)}" class="profile-pic" style="width:24px; height:24px;">
         <div class="comment-content">
@@ -859,6 +870,21 @@ async function openUserProfile(authorId) {
     const isMutualFriend = isFollowing && isFollowedBackDoc.exists();
 
     friendBadge.style.display = isMutualFriend ? "inline-block" : "none";
+
+    const blockBtn = document.getElementById("modalBlockBtn");
+    const isBlocked = blockedIds.has(authorId);
+    blockBtn.style.display = "block";
+    blockBtn.textContent = isBlocked ? "Unblock user" : "Block user";
+    blockBtn.onclick = async () => {
+      const ref = doc(db, "users", currentUser.uid, "blocked", authorId);
+      if (isBlocked) { await deleteDoc(ref); toast("Unblocked"); }
+      else {
+        if (!confirm(`Block ${name}? You won't see their posts, and they won't be able to message you.`)) return;
+        await setDoc(ref, { timestamp: serverTimestamp() });
+        toast("Blocked");
+      }
+      openUserProfile(authorId);
+    };
     followBtn.textContent = isFollowing ? "Following" : "+ Follow";
     followBtn.className = isFollowing ? "btn btn-follow following" : "btn btn-follow";
 
@@ -876,6 +902,7 @@ async function openUserProfile(authorId) {
 
   } else {
     msgBtn.style.display = "none";
+    document.getElementById("modalBlockBtn").style.display = "none";
     followBtn.style.display = "none";
     friendBadge.style.display = "none";
     editBtn.style.display = currentUser ? "block" : "none";
@@ -906,6 +933,35 @@ async function openUserProfile(authorId) {
   document.getElementById("profileModal").classList.add("open");
 }
 
+// Blocking
+let blockedIds = new Set(), blockUnsub = null;
+function applyBlocks() {
+  document.querySelectorAll("[data-author]").forEach(el => {
+    el.style.display = blockedIds.has(el.dataset.author) ? "none" : "";
+  });
+}
+function listenForBlocks() {
+  if (blockUnsub) blockUnsub();
+  blockUnsub = onSnapshot(collection(db, "users", currentUser.uid, "blocked"), snap => {
+    blockedIds = new Set(snap.docs.map(d => d.id));
+    applyBlocks();
+  }, () => {});
+}
+
+// Typing indicator helpers
+let typingUnsub = null, typingHideTimer = null, typingClearTimer = null, lastTypingWrite = 0;
+function setTyping(show) { document.getElementById("typingIndicator").style.display = show ? "block" : "none"; }
+async function clearMyTyping() {
+  clearTimeout(typingClearTimer);
+  lastTypingWrite = 0;
+  if (currentUser && activeChatUserId) {
+    try { await deleteDoc(doc(db, "typing", `${currentUser.uid}_${activeChatUserId}`)); } catch (e) {}
+  }
+}
+const chatVisible = () =>
+  document.getElementById("dmDrawer").classList.contains("open") &&
+  document.getElementById("dmFooter").style.display === "flex";
+
 // Chat Conversation Window
 function openChat(targetUserId, targetUserName) {
   if (!currentUser) return;
@@ -920,27 +976,38 @@ function openChat(targetUserId, targetUserName) {
   document.getElementById("dmDrawer").classList.add("open");
 
   if (dmUnsubscribe) dmUnsubscribe();
+  if (typingUnsub) typingUnsub();
+  setTyping(false);
+  typingUnsub = onSnapshot(doc(db, "typing", `${targetUserId}_${currentUser.uid}`), snap => {
+    clearTimeout(typingHideTimer);
+    setTyping(snap.exists());
+    if (snap.exists()) typingHideTimer = setTimeout(() => setTyping(false), 5000);
+  }, () => {});
 
   const q = query(collection(db, "direct_messages"), where("participants", "array-contains", currentUser.uid));
-
   dmUnsubscribe = onSnapshot(q, (snapshot) => {
     const msgs = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      if (data.participants.includes(targetUserId)) msgs.push(data);
+    snapshot.docs.forEach(d => {
+      const data = d.data();
+      if (data.participants.includes(targetUserId)) msgs.push({ id: d.id, ...data });
     });
+    msgs.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
 
-    msgs.sort((a,b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+    // read receipts: mark their messages as read while this chat is on screen
+    if (chatVisible() && activeChatUserId === targetUserId) {
+      msgs.filter(m => m.senderId !== currentUser.uid && !m.read)
+          .forEach(m => updateDoc(doc(db, "direct_messages", m.id), { read: true }).catch(() => {}));
+    }
+    const lastSent = [...msgs].reverse().find(m => m.senderId === currentUser.uid);
 
     dmBody.innerHTML = "";
     msgs.forEach(m => {
       const bubble = document.createElement("div");
       bubble.className = `dm-bubble ${m.senderId === currentUser.uid ? 'sent' : 'received'}`;
-      
-      const timeStr = m.timestamp ? formatDate(m.timestamp) : "Just now";
+      const status = m === lastSent ? (m.read ? " · ✓✓ Seen" : " · ✓ Sent") : "";
       bubble.innerHTML = `
         <div>${esc(m.text)}</div>
-        <div class="dm-time">${timeStr}</div>
+        <div class="dm-time">${m.timestamp ? formatDate(m.timestamp) : "Just now"}${status}</div>
       `;
       dmBody.appendChild(bubble);
     });
@@ -952,28 +1019,30 @@ document.getElementById("sendDmBtn").onclick = async () => {
   const input = document.getElementById("dmInput");
   const text = input.value.trim();
   if (!text || !activeChatUserId || !currentUser) return;
-
+  if (blockedIds.has(activeChatUserId)) return toast("Unblock this user to message them.");
   input.value = "";
-  
-  // Save message
-  await addDoc(collection(db, "direct_messages"), {
-    participants: [currentUser.uid, activeChatUserId],
-    senderId: currentUser.uid,
-    senderName: currentUser.displayName || currentUser.email,
-    text: text,
-    timestamp: serverTimestamp()
-  });
-
-  // Notification for recipient
-  await addDoc(collection(db, "notifications"), {
-    recipientId: activeChatUserId,
-    senderId: currentUser.uid,
-    senderName: currentUser.displayName || currentUser.email,
-    type: "dm",
-    snippet: text,
-    timestamp: serverTimestamp(),
-    read: false
-  });
+  clearMyTyping();
+  try {
+    await addDoc(collection(db, "direct_messages"), {
+      participants: [currentUser.uid, activeChatUserId],
+      senderId: currentUser.uid,
+      senderName: currentUser.displayName || currentUser.email,
+      text: text,
+      read: false,
+      timestamp: serverTimestamp()
+    });
+    await addDoc(collection(db, "notifications"), {
+      recipientId: activeChatUserId,
+      senderId: currentUser.uid,
+      senderName: currentUser.displayName || currentUser.email,
+      type: "dm",
+      snippet: text,
+      timestamp: serverTimestamp(),
+      read: false
+    });
+  } catch (err) {
+    toast("Message couldn't be sent.");
+  }
 };
 
 // Open Notifications Drawer
@@ -1000,7 +1069,7 @@ function openNotificationsDrawer() {
   if (notifUnsubscribe) notifUnsubscribe();
 
   notifUnsubscribe = onSnapshot(q, (snapshot) => {
-    const notifs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    const notifs = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).filter(n => !blockedIds.has(n.senderId));
     notifs.sort((a,b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
 
     dmBody.innerHTML = "";
@@ -1069,7 +1138,7 @@ function openDmsDrawer() {
     for (const d of snapshot.docs) {
       const data = d.data();
       const otherId = data.participants.find(p => p !== currentUser.uid);
-      if (!otherId) continue;
+      if (!otherId || blockedIds.has(otherId)) continue;
 
       const time = data.timestamp?.toMillis() || 0;
       if (!chatsMap.has(otherId) || chatsMap.get(otherId).timestamp < time) {
@@ -1162,7 +1231,9 @@ onAuthStateChanged(auth, async (user) => {
     dmTabBtn.style.display = "inline-block";
 
     listenForNotifications();
+    listenForBlocks();
   } else {
+    blockedIds = new Set();
     userInfo.style.display = "none";
     composer.style.display = "none";
     openAuthModalBtn.style.display = "inline-block";
@@ -1376,6 +1447,19 @@ document.getElementById("saveProfileBtn").onclick = async () => {
 };
 
 // ---- Extras ----
+document.getElementById("dmInput").addEventListener("input", () => {
+  if (!currentUser || !activeChatUserId) return;
+  const now = Date.now();
+  if (now - lastTypingWrite > 2000) {
+    lastTypingWrite = now;
+    setDoc(doc(db, "typing", `${currentUser.uid}_${activeChatUserId}`), { ts: serverTimestamp() }).catch(() => {});
+  }
+  clearTimeout(typingClearTimer);
+  typingClearTimer = setTimeout(clearMyTyping, 3000);
+});
+document.getElementById("closeDmBtn").addEventListener("click", () => { clearMyTyping(); setTyping(false); });
+["notifTabBtn", "dmTabBtn"].forEach(id =>
+  document.getElementById(id).addEventListener("click", () => { clearMyTyping(); setTyping(false); }));
 document.getElementById("dmInput").addEventListener("keydown", e => {
   if (e.key === "Enter") document.getElementById("sendDmBtn").click();
 });
