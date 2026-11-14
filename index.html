@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Qlix 2</title>
+<title>Qlix 2 (Beta)</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#547538">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
 :root{ --panel: rgba(255,255,255,0.15); --radius: 16px; --shadow: 0 8px 24px rgba(0,0,0,0.35); }
@@ -241,13 +245,57 @@ body.dark .edit-form input, body.dark .edit-form textarea{ background:#333; colo
 body.dark .mention-link, body.dark .tag-link{ color:#8ab4ff; }
 #typingIndicator{ display:none; padding:2px 14px; font-size:11px; font-style:italic; color:#777; background:#f5f5f5; }
 body.dark #typingIndicator{ background:#161616; color:#aaa; }
+.skip-link{ position:absolute; left:-999px; top:0; background:#fff; color:#000; padding:8px 12px; z-index:300; }
+.skip-link:focus{ left:8px; top:8px; }
+:focus-visible{ outline:3px solid #ffd54a; outline-offset:2px; }
+@media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+#offlineBar{ display:none; position:fixed; top:0; left:0; right:0; z-index:250; background:#c0392b; color:#fff; text-align:center; font-size:12px; padding:6px; }
+.composer-tools{ display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+#pollBox{ display:none; flex-direction:column; gap:6px; margin-bottom:8px; }
+.img-prev{ position:relative; display:inline-block; margin-bottom:8px; }
+.img-prev img{ max-height:120px; border-radius:10px; display:block; }
+.img-prev button{ position:absolute; top:4px; right:4px; }
+.post-img{ max-width:100%; max-height:420px; border-radius:12px; object-fit:contain; align-self:flex-start; }
+.post-menu{ display:flex; gap:4px; }
+.post-actions{ flex-wrap:wrap; align-items:center; }
+.react-summary{ font-size:12px; margin-right:auto; }
+.repost-meta{ font-size:11px; opacity:.7; }
+.repost-box{ background:rgba(255,255,255,.25); border-left:3px solid #547538; border-radius:8px; padding:8px 10px; font-size:13px; }
+.pin-label{ font-size:11px; font-weight:bold; opacity:.8; }
+.vbadge{ display:inline-block; background:#2e86de; color:#fff; border-radius:50%; width:14px; height:14px; line-height:14px; text-align:center; font-size:9px; vertical-align:middle; }
+.post-link{ text-decoration:none; color:inherit; }
+.poll{ display:flex; flex-direction:column; gap:6px; }
+.poll-opt-btn{ position:relative; overflow:hidden; text-align:left; border:1px solid rgba(0,0,0,.2); background:rgba(255,255,255,.5); border-radius:10px; padding:8px 10px; cursor:pointer; font-family:inherit; font-size:13px; display:flex; justify-content:space-between; }
+.poll-opt-btn.mine{ border-color:#547538; font-weight:bold; }
+.poll-bar{ position:absolute; left:0; top:0; bottom:0; background:rgba(84,117,56,.35); z-index:0; }
+.poll-label,.poll-pct{ position:relative; z-index:1; }
+.poll-total{ font-size:11px; opacity:.7; }
+#emojiBox{ display:none; position:fixed; z-index:160; background:#fff; border-radius:12px; box-shadow:var(--shadow); padding:6px; flex-wrap:wrap; width:208px; gap:2px; }
+#emojiBox button{ border:none; background:none; font-size:20px; cursor:pointer; padding:4px; border-radius:8px; }
+#emojiBox button:hover{ background:#eee; }
+.trend-card{ margin-top:16px; } .trend-card strong{ color:#fff; font-size:14px; }
+.trend-item{ display:flex; justify-content:space-between; color:#fff; font-size:13px; padding:4px 2px; cursor:pointer; border-radius:6px; }
+.trend-item:hover{ background:rgba(255,255,255,.2); }
+.site-footer{ text-align:center; font-size:11px; color:rgba(255,255,255,.85); padding:16px; }
+.site-footer a{ color:#fff; cursor:pointer; text-decoration:underline; margin:0 6px; }
+.wide-modal{ max-width:560px; }
+.legal-body ul{ padding-left:18px; font-size:13px; line-height:1.5; }
+.mod-item{ border:1px solid #ddd; border-radius:10px; padding:10px; margin-bottom:8px; font-size:13px; display:flex; flex-direction:column; gap:6px; text-align:left; }
+.mod-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+#threadBody .post{ background:#f2f2f2; text-align:left; }
+body.dark #threadBody .post{ background:#2a2a2a; }
+body.dark #emojiBox{ background:#222; } body.dark .mod-item{ border-color:#444; }
+body.dark .poll-opt-btn{ background:rgba(255,255,255,.1); color:#eee; }
 </style>
 </head>
 <body>
+<a class="skip-link" href="#feed">Skip to posts</a>
+<div id="offlineBar" role="status">You're offline. Some things may not load or send until you reconnect.</div>
 
 <header class="topbar">
-  <div class="logo" id="appLogo">Qlix 2</div>
+  <div class="logo" id="appLogo">Qlix 2 (Beta)</div>
   <div style="margin-left:auto; display:flex; gap:8px;">
+    <button class="btn" id="modBtn" style="display:none;">🛡 Mod</button>
     <button class="btn" id="themeBtn" title="Dark mode">🌙</button>
     <button class="btn" id="notifTabBtn" style="display:none;">
       🔔 Notifications
@@ -272,6 +320,8 @@ body.dark #typingIndicator{ background:#161616; color:#aaa; }
   
     <div class="card search-box"><input type="text" id="userSearch" placeholder="Search users…" autocomplete="off"><div id="searchResults"></div></div>
 
+    <div class="card trend-card" id="trendCard" style="display:none;"><strong>🔥 Trending</strong><div id="trendList"></div></div>
+
     <div class="card app-card" id="appDownloadCard">
       <strong>Get the Qlix app</strong>
       <span class="app-sub">Use Qlix in its own window</span>
@@ -295,15 +345,29 @@ body.dark #typingIndicator{ background:#161616; color:#aaa; }
     <div class="card composer" id="composer" style="display:none;">
       <textarea id="postText" maxlength="500" placeholder="What's on your mind? Use @handle and #tags. Enter to post, Shift+Enter for a new line."></textarea>
       <div class="counter" id="postCounter">0/500</div>
+      <div id="imgPreview"></div>
+      <div id="pollBox">
+        <input type="text" class="poll-opt" maxlength="40" placeholder="Poll option 1">
+        <input type="text" class="poll-opt" maxlength="40" placeholder="Poll option 2">
+        <input type="text" class="poll-opt" maxlength="40" placeholder="Option 3 (optional)">
+        <input type="text" class="poll-opt" maxlength="40" placeholder="Option 4 (optional)">
+      </div>
+      <div class="composer-tools">
+        <button type="button" class="btn btn-sm" id="emojiBtn" data-picker aria-label="Insert emoji">😊</button>
+        <button type="button" class="btn btn-sm" id="imgBtn" aria-label="Add image">📷 Image</button>
+        <button type="button" class="btn btn-sm" id="pollBtn" aria-label="Add poll">📊 Poll</button>
+        <input type="file" id="imgInput" accept="image/*" hidden>
+      </div>
       <button class="btn primary" id="postBtn">Post</button>
     </div>
-    <div class="feed-tabs" id="feedTabs"><button class="btn feed-tab active" data-mode="all">All</button><button class="btn feed-tab" data-mode="following">Following</button></div>
+    <div class="feed-tabs" id="feedTabs"><button class="btn feed-tab active" data-mode="all">All</button><button class="btn feed-tab" data-mode="following">Following</button><button class="btn feed-tab" data-mode="saved">🔖 Saved</button></div>
     <div id="tagBanner"><span id="tagBannerText"></span><button class="btn btn-sm" id="clearTagBtn">✕ Clear</button></div>
     <button class="btn" id="newPostsPill">New posts ↑</button>
     <div class="feed" id="feed"></div>
     <button class="btn primary load-more" id="loadMoreBtn">Load more</button>
   </section>
 </main>
+<footer class="site-footer"><a class="legal-link" data-legal="Terms">Terms</a> · <a class="legal-link" data-legal="Privacy">Privacy</a> · <a class="legal-link" data-legal="Rules">Community Rules</a></footer>
 
 <div class="modal-overlay" id="authModal">
   <div class="auth-modal">
@@ -332,6 +396,7 @@ body.dark #typingIndicator{ background:#161616; color:#aaa; }
         <input type="email" id="signUpEmail" placeholder="you@example.com" required>
         <label>Password</label>
         <input type="password" id="signUpPassword" placeholder="At least 6 characters" required>
+        <label style="display:flex; gap:6px; align-items:flex-start; font-weight:normal;"><input type="checkbox" id="signUpAgree" style="width:auto; margin-top:2px;"> <span>I am 13 or older and agree to the <a class="forgot legal-link" data-legal="Terms">Terms</a>, <a class="forgot legal-link" data-legal="Privacy">Privacy Policy</a> and <a class="forgot legal-link" data-legal="Rules">Community Rules</a>.</span></label>
         <button type="submit" class="btn primary" style="background:#547538; color:white; margin-top:6px;">Create Account</button>
       </form>
 
@@ -379,6 +444,8 @@ body.dark #typingIndicator{ background:#161616; color:#aaa; }
 
       <button class="btn btn-sm" id="modalBlockBtn" style="width:100%; display:none; background:#eee;">Block user</button>
 
+      <div id="adminActions" style="display:none; gap:6px; width:100%;"><button class="btn btn-sm" id="verifyBtn" style="flex:1;">Verify ✔</button><button class="btn btn-sm btn-danger" id="banBtn" style="flex:1;">Ban</button></div>
+
       <div class="edit-form" id="editForm">
         <label>
           Profile Picture Image URL 
@@ -394,6 +461,7 @@ body.dark #typingIndicator{ background:#161616; color:#aaa; }
           </span>
         </label>
         <input type="text" id="editAvatarInput" placeholder="https://example.com/avatar.jpg">
+        <label>Or upload a photo <input type="file" id="avatarFile" accept="image/*"></label>
 
         <label>Display Name</label>
         <input type="text" id="editNameInput">
@@ -409,6 +477,7 @@ body.dark #typingIndicator{ background:#161616; color:#aaa; }
 
         <button class="btn primary btn-sm" id="saveProfileBtn" style="margin-top: 6px;">Save Changes</button>
         <div class="status-msg" id="uploadStatus"></div>
+        <button type="button" class="btn btn-sm btn-danger" id="deleteAccountBtn" style="margin-top:8px;">Delete my account</button>
       </div>
 
       <!-- User Post Feed -->
@@ -439,6 +508,14 @@ body.dark #typingIndicator{ background:#161616; color:#aaa; }
 
 <div id="toast"></div>
 <div id="mentionBox"></div>
+<div id="emojiBox"></div>
+
+<div class="modal-overlay" id="legalModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
+  <div class="modal-body" style="text-align:left; padding-top:28px;"><div class="auth-tabs" id="legalTabs"></div><div class="legal-body" id="legalBody"></div></div></div></div>
+<div class="modal-overlay" id="threadModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
+  <div class="modal-body" id="threadBody" style="padding-top:34px;"></div></div></div>
+<div class="modal-overlay" id="modModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
+  <div class="modal-body" style="padding-top:28px;"><h3 style="margin:0;">🛡 Reported posts</h3><div id="modBody"></div></div></div></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
@@ -450,7 +527,7 @@ import {
   getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc, deleteDoc, serverTimestamp, query, where, onSnapshot, updateDoc 
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-import { sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { sendPasswordResetEmail, deleteUser, reauthenticateWithCredential, reauthenticateWithPopup, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -617,6 +694,82 @@ async function notifyMentions(text, postOrCommentId) {
   }
 }
 
+// ---- Shared helpers ----
+const REACTIONS = ["❤️","👍","😂","😮","😢","🔥"];
+const EMOJIS = ["😀","😂","😍","🥰","😎","🤔","😢","😡","👍","🙏","🎉","🔥","❤️","💯","👀","✨"];
+let verifiedIds = new Set(), bookmarkIds = new Set(), myPinnedId = null, isAdmin = false, notifFirst = true;
+const verifiedReady = getDocs(collection(db, "verified")).then(sn => { verifiedIds = new Set(sn.docs.map(d => d.id)); }).catch(() => {});
+const vbadge = uid => verifiedIds.has(uid) ? ' <span class="vbadge" title="Verified" aria-label="Verified">✔</span>' : "";
+const safeImg = u => (typeof u === "string" && u.startsWith("data:image/")) ? u : "";
+const needLogin = () => document.getElementById("authModal").classList.add("open");
+
+function showPicker(anchor, list, onPick) {
+  const box = document.getElementById("emojiBox");
+  box.innerHTML = "";
+  list.forEach(em => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = em;
+    b.onclick = () => { onPick(em); box.style.display = "none"; };
+    box.appendChild(b);
+  });
+  const r = anchor.getBoundingClientRect();
+  box.style.display = "flex";
+  box.style.left = Math.max(4, Math.min(r.left, innerWidth - 220)) + "px";
+  box.style.top = Math.min(r.bottom + 4, innerHeight - 120) + "px";
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest("#emojiBox") && !e.target.closest("[data-picker]")) document.getElementById("emojiBox").style.display = "none";
+});
+
+function resizeImage(file, max, square, quality = 0.65) {
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      let sw = img.width, sh = img.height, sx = 0, sy = 0, w, h;
+      if (square) { const m = Math.min(sw, sh); sx = (sw - m) / 2; sy = (sh - m) / 2; sw = sh = m; w = h = max; }
+      else { const k = Math.min(1, max / Math.max(sw, sh)); w = Math.round(sw * k); h = Math.round(sh * k); }
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => rej(new Error("That file isn't a usable image."));
+    img.src = url;
+  });
+}
+
+function renderPoll(el, post) {
+  const opts = post.poll.options || [];
+  if (commentUnsubscribes.has("V" + post.id)) commentUnsubscribes.get("V" + post.id)();
+  commentUnsubscribes.set("V" + post.id, onSnapshot(collection(db, "posts", post.id, "votes"), snap => {
+    const counts = opts.map(() => 0);
+    let mine = null;
+    snap.docs.forEach(d => {
+      const i = d.data().option;
+      if (counts[i] !== undefined) counts[i]++;
+      if (currentUser && d.id === currentUser.uid) mine = i;
+    });
+    const total = snap.size, showRes = mine !== null || !currentUser;
+    el.innerHTML = "";
+    opts.forEach((o, i) => {
+      const pct = total ? Math.round(counts[i] * 100 / total) : 0;
+      const row = document.createElement("button");
+      row.className = "poll-opt-btn" + (mine === i ? " mine" : "");
+      row.innerHTML = `<span class="poll-bar" style="width:${showRes ? pct : 0}%"></span><span class="poll-label">${esc(o)}</span>${showRes ? `<span class="poll-pct">${pct}%</span>` : ""}`;
+      row.disabled = mine !== null;
+      row.onclick = async () => {
+        if (!currentUser) return needLogin();
+        try { await setDoc(doc(db, "posts", post.id, "votes", currentUser.uid), { option: i, timestamp: serverTimestamp() }); }
+        catch (e) { toast("Couldn't vote."); }
+      };
+      el.appendChild(row);
+    });
+    const t = document.createElement("div");
+    t.className = "poll-total"; t.textContent = `${total} vote${total === 1 ? "" : "s"}`;
+    el.appendChild(t);
+  }, () => {}));
+}
+
 // Post Card Creation
 function createPostCard(post) {
   const card = document.createElement("div");
@@ -624,28 +777,40 @@ function createPostCard(post) {
   card.id = `post-${post.id}`;
   card.dataset.author = post.authorId;
   const isAuthor = currentUser && currentUser.uid === post.authorId;
+  const rp = post.repost, img = safeImg(post.image);
 
   card.innerHTML = `
     <div class="post-header">
-      <div class="author-link">
+      <div class="author-link" role="button" tabindex="0">
         <img src="${esc(avatarSrc(post.authorPic, post.authorName))}" alt="${esc(post.authorName)}" class="profile-pic">
         <div>
-          <strong>${esc(post.authorName)}</strong>
-          <span class="post-timestamp">${formatDate(post.timestamp)}${post.edited ? " · edited" : ""}</span>
+          <strong>${esc(post.authorName)}</strong>${vbadge(post.authorId)}
+          <a class="post-timestamp post-link" href="#post-${esc(post.id)}">${formatDate(post.timestamp)}${post.edited ? " · edited" : ""}</a>
         </div>
       </div>
-      <div style="display:flex; gap:4px;">
-        ${isAuthor ? `<button class="btn btn-sm edit-btn">Edit</button><button class="btn btn-sm btn-danger delete-btn">Delete</button>`
+      <div class="post-menu">
+        ${isAuthor ? `<button class="btn btn-sm pin-btn" title="Pin to your profile" aria-label="Pin to profile">📌</button><button class="btn btn-sm edit-btn">Edit</button><button class="btn btn-sm btn-danger delete-btn">Delete</button>`
           : (currentUser ? `<button class="btn btn-sm report-btn">Report</button>` : "")}
       </div>
     </div>
+    ${rp ? `<div class="repost-meta">🔁 Reposted</div>` : ""}
     <div class="post-content">${renderMentions(post.text)}</div>
-    <div class="post-actions"><button class="like-btn" title="Like">🤍 <span>0</span></button></div>
+    ${rp ? `<div class="repost-box"><strong>${esc(rp.authorName)}</strong><div>${renderMentions(rp.text)}</div></div>` : ""}
+    ${img ? `<img class="post-img" src="${img}" alt="Image attached to post">` : ""}
+    ${post.poll ? `<div class="poll"></div>` : ""}
+    <div class="post-actions">
+      <button class="like-btn" aria-label="React">🤍 <span>0</span></button>
+      <button class="like-btn react-btn" data-picker aria-label="Choose a reaction">😀＋</button>
+      <span class="react-summary"></span>
+      <button class="like-btn repost-btn" aria-label="Repost" title="Repost">🔁</button>
+      <button class="like-btn bm-btn" data-pid="${esc(post.id)}" aria-label="Save post" title="Save">${bookmarkIds.has(post.id) ? "📑" : "🔖"}</button>
+      <button class="like-btn share-btn" aria-label="Copy link to post" title="Copy link">🔗</button>
+    </div>
     <div class="comments-section">
       <div class="comments-list" id="comments-${post.id}"></div>
       ${currentUser ? `
         <div class="comment-input-wrap">
-          <input type="text" placeholder="Write a comment..." id="comment-input-${post.id}">
+          <input type="text" aria-label="Write a comment" placeholder="Write a comment..." id="comment-input-${post.id}">
           <button class="btn primary btn-sm comment-submit-btn">Reply</button>
         </div>` : ''}
     </div>
@@ -655,6 +820,7 @@ function createPostCard(post) {
   const content = card.querySelector(".post-content");
   bindMentionLinks(card);
   if (blockedIds.has(post.authorId)) card.style.display = "none";
+  if (post.poll) renderPoll(card.querySelector(".poll"), post);
 
   if (isAuthor) {
     card.querySelector(".delete-btn").onclick = async () => {
@@ -671,13 +837,19 @@ function createPostCard(post) {
       content.replaceChildren(ta, save);
       save.onclick = async () => {
         const t = ta.value.trim();
-        if (!t) return;
+        if (!t && !post.image && !post.repost) return;
         await updateDoc(doc(db, "posts", post.id), { text: t, edited: true, tags: extractTags(t) });
         post.text = t;
         content.innerHTML = renderMentions(t);
         bindMentionLinks(content);
         toast("Post updated");
       };
+    };
+    card.querySelector(".pin-btn").onclick = async () => {
+      const unpin = myPinnedId === post.id;
+      await setDoc(doc(db, "users", currentUser.uid), { pinnedPostId: unpin ? null : post.id }, { merge: true });
+      myPinnedId = unpin ? null : post.id;
+      toast(unpin ? "Unpinned" : "Pinned to your profile");
     };
   } else if (currentUser) {
     card.querySelector(".report-btn").onclick = async () => {
@@ -686,24 +858,70 @@ function createPostCard(post) {
     };
   }
 
-  // Likes
+  // Reactions
   const likeBtn = card.querySelector(".like-btn");
+  const reactBtn = card.querySelector(".react-btn");
+  let myReaction = null;
   if (commentUnsubscribes.has("L" + post.id)) commentUnsubscribes.get("L" + post.id)();
   commentUnsubscribes.set("L" + post.id, onSnapshot(collection(db, "posts", post.id, "likes"), snap => {
-    const liked = currentUser && snap.docs.some(d => d.id === currentUser.uid);
-    likeBtn.innerHTML = `${liked ? "❤️" : "🤍"} <span>${snap.size}</span>`;
-    likeBtn.classList.toggle("liked", !!liked);
+    const counts = {};
+    myReaction = null;
+    snap.docs.forEach(d => {
+      const em = REACTIONS.includes(d.data().emoji) ? d.data().emoji : "❤️";
+      counts[em] = (counts[em] || 0) + 1;
+      if (currentUser && d.id === currentUser.uid) myReaction = em;
+    });
+    likeBtn.innerHTML = `${myReaction || "🤍"} <span>${snap.size}</span>`;
+    likeBtn.classList.toggle("liked", !!myReaction);
+    card.querySelector(".react-summary").textContent = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([e, n]) => `${e}${n}`).join(" ");
   }, () => {}));
-  likeBtn.onclick = async () => {
-    if (!currentUser) return document.getElementById("authModal").classList.add("open");
+  async function react(em) {
+    if (!currentUser) return needLogin();
     const ref = doc(db, "posts", post.id, "likes", currentUser.uid);
-    if (likeBtn.classList.contains("liked")) { await deleteDoc(ref); }
-    else {
-      await setDoc(ref, { timestamp: serverTimestamp() });
-      likeBtn.classList.add("pop");
-      setTimeout(() => likeBtn.classList.remove("pop"), 400);
-      notify(post.authorId, "like", post.text, post.id);
-    }
+    if (myReaction === em) { await deleteDoc(ref); return; }
+    const first = !myReaction;
+    await setDoc(ref, { emoji: em, timestamp: serverTimestamp() });
+    likeBtn.classList.add("pop");
+    setTimeout(() => likeBtn.classList.remove("pop"), 400);
+    if (first) notify(post.authorId, "like", post.text, post.id);
+  }
+  likeBtn.onclick = () => react(myReaction || "❤️");
+  reactBtn.onclick = () => showPicker(reactBtn, REACTIONS, react);
+
+  // Repost
+  card.querySelector(".repost-btn").onclick = async () => {
+    if (!currentUser) return needLogin();
+    const orig = post.repost ? { ...post.repost } : { id: post.id, authorId: post.authorId, authorName: post.authorName, text: post.text || "" };
+    if (orig.authorId === currentUser.uid) return toast("You can't repost your own post.");
+    if (!confirm("Repost this to your followers?")) return;
+    try {
+      const u = (await getDoc(doc(db, "users", currentUser.uid))).data() || {};
+      const ref = doc(collection(db, "posts"));
+      newestId = ref.id;
+      const data = {
+        authorId: currentUser.uid,
+        authorName: u.displayName || currentUser.displayName || currentUser.email,
+        authorPic: u.photoURL || currentUser.photoURL || "",
+        text: "", tags: [], timestamp: serverTimestamp(),
+        repost: { id: orig.id, authorId: orig.authorId, authorName: orig.authorName, text: orig.text }
+      };
+      await setDoc(ref, data);
+      notify(orig.authorId, "repost", orig.text, orig.id);
+      toast("Reposted!");
+      if (feedMode === "all" || feedMode === "following") feedEl.prepend(createPostCard({ id: ref.id, ...data, timestamp: new Date() }));
+    } catch (e) { toast("Couldn't repost."); }
+  };
+
+  // Bookmark + share link
+  card.querySelector(".bm-btn").onclick = async () => {
+    if (!currentUser) return needLogin();
+    const ref = doc(db, "users", currentUser.uid, "bookmarks", post.id);
+    if (bookmarkIds.has(post.id)) { await deleteDoc(ref); toast("Removed from saved"); }
+    else { await setDoc(ref, { timestamp: serverTimestamp() }); toast("Saved"); }
+  };
+  card.querySelector(".share-btn").onclick = () => {
+    const url = location.origin + location.pathname + "#post-" + post.id;
+    (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast("Link copied")).catch(() => prompt("Copy this link:", url));
   };
 
   // Comments
@@ -715,17 +933,19 @@ function createPostCard(post) {
       const text = input.value.trim();
       if (!text) return;
       input.value = "";
-      const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-      const userData = userSnap.exists() ? userSnap.data() : {};
-      await addDoc(collection(db, "posts", post.id, "comments"), {
-        authorId: currentUser.uid,
-        authorName: userData.displayName || currentUser.email,
-        authorPic: userData.photoURL || currentUser.photoURL || "",
-        text: text,
-        timestamp: serverTimestamp()
-      });
-      notifyMentions(text, post.id);
-      notify(post.authorId, "reply", text, post.id);
+      try {
+        const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        await addDoc(collection(db, "posts", post.id, "comments"), {
+          authorId: currentUser.uid,
+          authorName: userData.displayName || currentUser.email,
+          authorPic: userData.photoURL || currentUser.photoURL || "",
+          text: text,
+          timestamp: serverTimestamp()
+        });
+        notifyMentions(text, post.id);
+        notify(post.authorId, "reply", text, post.id);
+      } catch (e) { toast("Couldn't send comment."); }
     };
     replyBtn.onclick = submitComment;
     input.onkeydown = (e) => { if (e.key === "Enter") submitComment(); };
@@ -746,10 +966,10 @@ function createPostCard(post) {
       cDiv.innerHTML = `
         <img src="${esc(avatarSrc(c.authorPic, c.authorName))}" alt="${esc(c.authorName)}" class="profile-pic" style="width:24px; height:24px;">
         <div class="comment-content">
-          <div><span class="comment-author">${esc(c.authorName)}</span> <span class="post-timestamp">${formatDate(c.timestamp)}</span></div>
+          <div><span class="comment-author">${esc(c.authorName)}</span>${vbadge(c.authorId)} <span class="post-timestamp">${formatDate(c.timestamp)}</span></div>
           <div style="padding-right: 40px;">${renderMentions(c.text)}</div>
         </div>
-        ${canDeleteComment ? `<button class="btn btn-sm btn-danger comment-delete-btn">✕</button>` : ''}
+        ${canDeleteComment ? `<button class="btn btn-sm btn-danger comment-delete-btn" aria-label="Delete comment">✕</button>` : ''}
       `;
       cDiv.querySelector(".comment-author").onclick = () => openUserProfile(c.authorId);
       bindMentionLinks(cDiv);
@@ -777,9 +997,9 @@ function skeletons(n = 3) {
 function setFeedMode(mode) {
   feedMode = mode;
   document.querySelectorAll(".feed-tab").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
-  const isTag = mode.startsWith("tag:");
+  const isTag = /^(tag|q):/.test(mode);
   document.getElementById("tagBanner").style.display = isTag ? "flex" : "none";
-  if (isTag) document.getElementById("tagBannerText").textContent = "Posts tagged #" + mode.slice(4);
+  if (isTag) document.getElementById("tagBannerText").textContent = mode.startsWith("q:") ? "Posts matching “" + mode.slice(2) + "”" : "Posts tagged #" + mode.slice(4);
   fetchFeed(true);
 }
 
@@ -803,6 +1023,12 @@ async function fetchFeed(reset = true) {
       const f = currentUser ? await getDocs(collection(db, "users", currentUser.uid, "following")) : { docs: [] };
       const ids = f.docs.map(d => d.id).slice(0, 30);
       if (ids.length) docs = (await getDocs(query(collection(db, "posts"), where("authorId", "in", ids)))).docs;
+    } else if (feedMode === "saved") {
+      docs = (await Promise.all([...bookmarkIds].slice(0, 30).map(id => getDoc(doc(db, "posts", id))))).filter(d => d.exists());
+    } else if (feedMode.startsWith("q:")) {
+      const term = feedMode.slice(2).toLowerCase();
+      const sn = await getDocs(query(collection(db, "posts"), orderBy("timestamp", "desc"), limit(200)));
+      docs = sn.docs.filter(d => ((d.data().text || "") + " " + (d.data().repost?.text || "")).toLowerCase().includes(term));
     } else {
       docs = (await getDocs(query(collection(db, "posts"), where("tags", "array-contains", feedMode.slice(4))))).docs;
     }
@@ -815,8 +1041,9 @@ async function fetchFeed(reset = true) {
   if (feedMode !== "all") posts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
   if (reset && feedMode === "all" && posts[0]) newestId = posts[0].id;
   if (reset && !posts.length) {
-    feedEl.innerHTML = `<p class="feed-msg">${feedMode === "following" ? "Follow people to see their posts here." : "No posts yet. Be the first to post!"}</p>`;
+    feedEl.innerHTML = `<p class="feed-msg">${feedMode === "following" ? "Follow people to see their posts here." : feedMode === "saved" ? "No saved posts yet. Tap 🔖 on a post." : feedMode === "all" ? "No posts yet. Be the first to post!" : "No posts found."}</p>`;
   }
+  await verifiedReady;
   posts.forEach(p => feedEl.appendChild(createPostCard(p)));
   loadMoreBtn.style.display = paged ? "block" : "none";
 }
@@ -837,7 +1064,7 @@ async function openUserProfile(authorId) {
   const headerUrl = userData.headerUrl || "";
 
   document.getElementById("modalProfilePic").src = pic;
-  document.getElementById("modalProfileName").textContent = name;
+  document.getElementById("modalProfileName").innerHTML = esc(name) + vbadge(authorId);
   document.getElementById("modalProfileHandle").textContent = handle;
   document.getElementById("modalProfileBio").textContent = bio;
   document.getElementById("modalHeaderBanner").style.backgroundImage = headerUrl ? `url(${JSON.stringify(headerUrl)})` : 'none';
@@ -885,6 +1112,27 @@ async function openUserProfile(authorId) {
       }
       openUserProfile(authorId);
     };
+
+    // moderator-only buttons
+    const adm = document.getElementById("adminActions");
+    adm.style.display = isAdmin ? "flex" : "none";
+    if (isAdmin) {
+      const vBtn = document.getElementById("verifyBtn"), bBtn = document.getElementById("banBtn");
+      vBtn.textContent = verifiedIds.has(authorId) ? "Remove ✔" : "Verify ✔";
+      vBtn.onclick = async () => {
+        const ref = doc(db, "verified", authorId);
+        if (verifiedIds.has(authorId)) { await deleteDoc(ref); verifiedIds.delete(authorId); }
+        else { await setDoc(ref, { timestamp: serverTimestamp() }); verifiedIds.add(authorId); }
+        openUserProfile(authorId);
+      };
+      const isBan = (await getDoc(doc(db, "banned", authorId))).exists();
+      bBtn.textContent = isBan ? "Unban" : "Ban";
+      bBtn.onclick = async () => {
+        if (isBan) { await deleteDoc(doc(db, "banned", authorId)); toast("Unbanned"); }
+        else if (confirm(`Ban ${name}? They won't be able to post, comment or message.`)) { await setDoc(doc(db, "banned", authorId), { timestamp: serverTimestamp() }); toast("Banned"); }
+        openUserProfile(authorId);
+      };
+    }
     followBtn.textContent = isFollowing ? "Following" : "+ Follow";
     followBtn.className = isFollowing ? "btn btn-follow following" : "btn btn-follow";
 
@@ -903,6 +1151,7 @@ async function openUserProfile(authorId) {
   } else {
     msgBtn.style.display = "none";
     document.getElementById("modalBlockBtn").style.display = "none";
+    document.getElementById("adminActions").style.display = "none";
     followBtn.style.display = "none";
     friendBadge.style.display = "none";
     editBtn.style.display = currentUser ? "block" : "none";
@@ -927,7 +1176,14 @@ async function openUserProfile(authorId) {
   if (userPosts.length === 0) {
     userFeed.innerHTML = "<p style='font-size:12px; color:#666;'>No posts published yet.</p>";
   } else {
-    userPosts.forEach(post => userFeed.appendChild(createPostCard(post)));
+    const pin = userData.pinnedPostId;
+    const pi = pin ? userPosts.findIndex(p => p.id === pin) : -1;
+    if (pi > 0) userPosts.unshift(userPosts.splice(pi, 1)[0]);
+    userPosts.forEach(post => {
+      const c = createPostCard(post);
+      if (pin && post.id === pin) c.insertAdjacentHTML("afterbegin", '<div class="pin-label">📌 Pinned</div>');
+      userFeed.appendChild(c);
+    });
   }
 
   document.getElementById("profileModal").classList.add("open");
@@ -1083,7 +1339,7 @@ function openNotificationsDrawer() {
       item.className = `notif-item ${n.type === 'dm' ? 'notif-dm' : ''}`;
       
       const who = esc(n.senderName);
-      const titles = { mention: `${who} mentioned you`, like: `❤️ ${who} liked your post`, reply: `💬 ${who} replied to your post`, follow: `👤 ${who} followed you` };
+      const titles = { mention: `${who} mentioned you`, like: `❤️ ${who} liked your post`, reply: `💬 ${who} replied to your post`, follow: `👤 ${who} followed you`, repost: `🔁 ${who} reposted your post` };
       let titleText = titles[n.type] || `${who} mentioned you`;
       if (n.type === "dm") titleText = `💬 New DM from ${esc(n.senderName)}`;
 
@@ -1183,11 +1439,20 @@ function setBadge(id, n) {
 function listenForNotifications() {
   if (!currentUser) return;
   if (badgeUnsub) badgeUnsub();
+  notifFirst = true;
   const q = query(collection(db, "notifications"), where("recipientId", "==", currentUser.uid), where("read", "==", false));
   badgeUnsub = onSnapshot(q, (snapshot) => {
     const dms = snapshot.docs.filter(d => d.data().type === "dm").length;
     setBadge("notifBadge", snapshot.size - dms);
     setBadge("dmBadge", dms);
+    if (!notifFirst && "Notification" in window && Notification.permission === "granted" && document.hidden) {
+      snapshot.docChanges().filter(c => c.type === "added").forEach(c => {
+        const n = c.doc.data();
+        if (blockedIds.has(n.senderId)) return;
+        try { new Notification(n.type === "dm" ? `New message from ${n.senderName}` : `Qlix: ${n.senderName} (${n.type})`, { body: n.snippet || "", icon: "icon-192.png" }); } catch (e) {}
+      });
+    }
+    notifFirst = false;
   });
 }
 
@@ -1232,8 +1497,10 @@ onAuthStateChanged(auth, async (user) => {
 
     listenForNotifications();
     listenForBlocks();
+    loadUserMeta(userData);
   } else {
     blockedIds = new Set();
+    resetUserMeta();
     userInfo.style.display = "none";
     composer.style.display = "none";
     openAuthModalBtn.style.display = "inline-block";
@@ -1244,21 +1511,63 @@ onAuthStateChanged(auth, async (user) => {
 
   startWelcomeRotation();
   document.getElementById("feedTabs").style.display = user ? "flex" : "none";
-  if (!user && feedMode === "following") setFeedMode("all"); else fetchFeed(true);
+  if (!user && (feedMode === "following" || feedMode === "saved")) setFeedMode("all"); else fetchFeed(true);
+  checkHash();
 });
 
 // Post creation
 const postTextEl = document.getElementById("postText");
 const postBtnEl = document.getElementById("postBtn");
+let pendingImage = "", pollOpen = false;
+
+function setPendingImage(d) {
+  pendingImage = d;
+  const box = document.getElementById("imgPreview");
+  box.innerHTML = d ? `<div class="img-prev"><img src="${d}" alt="Preview"><button type="button" class="btn btn-sm" id="rmImg" aria-label="Remove image">✕</button></div>` : "";
+  if (d) document.getElementById("rmImg").onclick = () => setPendingImage("");
+}
+function resetComposer() {
+  postTextEl.value = "";
+  document.getElementById("postCounter").textContent = "0/500";
+  setPendingImage("");
+  pollOpen = false;
+  document.getElementById("pollBox").style.display = "none";
+  document.querySelectorAll(".poll-opt").forEach(i => i.value = "");
+}
 postTextEl.addEventListener("input", () => {
   document.getElementById("postCounter").textContent = `${postTextEl.value.length}/500`;
 });
 postTextEl.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); postBtnEl.click(); }
 });
+document.getElementById("imgBtn").onclick = () => document.getElementById("imgInput").click();
+document.getElementById("imgInput").onchange = async (e) => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  try {
+    let d = await resizeImage(f, 720, false, 0.65);
+    if (d.length > 350000) d = await resizeImage(f, 560, false, 0.5);
+    if (d.length > 350000) return toast("That image is too large. Try a smaller one.");
+    setPendingImage(d);
+  } catch (err) { toast(err.message); }
+};
+document.getElementById("pollBtn").onclick = () => {
+  pollOpen = !pollOpen;
+  document.getElementById("pollBox").style.display = pollOpen ? "flex" : "none";
+};
+document.getElementById("emojiBtn").onclick = (e) =>
+  showPicker(e.currentTarget, EMOJIS, em => { postTextEl.value += em; postTextEl.focus(); postTextEl.dispatchEvent(new Event("input")); });
+
 postBtnEl.onclick = async () => {
   const text = postTextEl.value.trim().slice(0, 500);
-  if (!text || !currentUser || postBtnEl.disabled) return;
+  if ((!text && !pendingImage) || !currentUser || postBtnEl.disabled) return;
+  let options = null;
+  if (pollOpen) {
+    options = [...document.querySelectorAll(".poll-opt")].map(i => i.value.trim()).filter(Boolean);
+    if (options.length < 2) return toast("Add at least 2 poll options.");
+    if (!text) return toast("Add a question for your poll.");
+  }
   postBtnEl.disabled = true;
   try {
     const userSnap = await getDoc(doc(db, "users", currentUser.uid));
@@ -1271,11 +1580,12 @@ postBtnEl.onclick = async () => {
       authorPic: u.photoURL || currentUser.photoURL || "",
       text, tags: extractTags(text), timestamp: serverTimestamp()
     };
+    if (pendingImage) data.image = pendingImage;
+    if (options) data.poll = { options };
     await setDoc(ref, data);
     notifyMentions(text, ref.id);
-    postTextEl.value = "";
-    document.getElementById("postCounter").textContent = "0/500";
-    if (!feedMode.startsWith("tag:")) {
+    resetComposer();
+    if (feedMode === "all" || feedMode === "following") {
       const empty = feedEl.querySelector(".feed-msg");
       if (empty) empty.remove();
       feedEl.prepend(createPostCard({ id: ref.id, ...data, timestamp: new Date() }));
@@ -1355,6 +1665,10 @@ document.getElementById("emailSignUpForm").onsubmit = async (e) => {
   const handle = document.getElementById("signUpHandle").value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
   const email = document.getElementById("signUpEmail").value;
   const password = document.getElementById("signUpPassword").value;
+  if (!document.getElementById("signUpAgree").checked) {
+    document.getElementById("authErrorMsg").textContent = "Please accept the Terms, Privacy Policy and Community Rules.";
+    return;
+  }
 
   try {
     const handleSnap = await getDocs(query(collection(db, "users"), where("handle", "==", handle)));
@@ -1426,7 +1740,7 @@ document.getElementById("saveProfileBtn").onclick = async () => {
     }, { merge: true });
 
     if (newName) {
-      await updateProfile(currentUser, { displayName: newName, photoURL: newAvatar });
+      await updateProfile(currentUser, { displayName: newName, ...(newAvatar.startsWith("data:") ? {} : { photoURL: newAvatar }) });
     }
 
     status.className = "status-msg success";
@@ -1522,7 +1836,12 @@ document.getElementById("userSearch").addEventListener("input", e => {
   if (!v) { out.innerHTML = ""; return; }
   searchTimer = setTimeout(async () => {
     const users = await findHandles(v);
-    out.innerHTML = users.length ? "" : "<div class='sr-empty'>No users found</div>";
+    out.innerHTML = "";
+    const pr = document.createElement("div");
+    pr.className = "sr-item"; pr.textContent = `🔍 Search posts for “${v}”`;
+    pr.onclick = () => { out.innerHTML = ""; e.target.value = ""; setFeedMode("q:" + v); };
+    out.appendChild(pr);
+    if (!users.length) out.insertAdjacentHTML("beforeend", "<div class='sr-empty'>No users found</div>");
     users.forEach(u => {
       const r = document.createElement("div");
       r.className = "sr-item";
@@ -1531,6 +1850,12 @@ document.getElementById("userSearch").addEventListener("input", e => {
       out.appendChild(r);
     });
   }, 250);
+});
+
+// Post search row + Enter to search
+document.getElementById("userSearch").addEventListener("keydown", e => {
+  const v = e.target.value.trim();
+  if (e.key === "Enter" && v) { document.getElementById("searchResults").innerHTML = ""; setFeedMode("q:" + v.replace(/^@/, "")); }
 });
 
 const mentionBox = document.getElementById("mentionBox");
@@ -1562,6 +1887,215 @@ function attachMentionSuggest(input) {
   input.addEventListener("blur", () => setTimeout(() => mentionBox.style.display = "none", 150));
 }
 attachMentionSuggest(postTextEl);
+
+// ================= Round 3 extras =================
+const CONTACT = "morganbedard@yahoo.com";   // <-- change this to your real contact email
+const LEGAL = {
+  Terms: [
+    "You must be at least 13 years old to use Qlix.",
+    "You are responsible for what you post. Don't post anything illegal, hateful, threatening, or that violates someone else's rights.",
+    "Don't spam, impersonate other people, or try to break or abuse the service.",
+    "Qlix may remove content or suspend accounts that break these terms or the Community Rules.",
+    "Qlix is in beta and provided “as is”, with no guarantees. Features and data may change or be lost.",
+    "You can delete your account at any time from your profile."
+  ],
+  Privacy: [
+    "What Qlix stores: your email address, display name, handle, profile details, posts, comments, reactions, votes, follows, blocks, saved posts, reports and direct messages.",
+    "Your data is stored using Google Firebase. Posts, profiles, comments and reactions are public. Direct messages are visible only to the two people in the chat, but they are not end-to-end encrypted.",
+    "Qlix does not use your data for advertising.",
+    "Your browser or app stores small items locally, such as your login session and your dark mode choice.",
+    "You can edit your profile at any time and delete your account from your profile. Deleting your account removes your profile and posts; comments and messages you sent may remain.",
+    "Questions or requests: " + CONTACT
+  ],
+  Rules: [
+    "Be kind. No harassment, bullying, or hate toward people or groups.",
+    "No sexual content, graphic violence, or illegal content.",
+    "No spam, scams, or fake accounts.",
+    "Don't share other people's private information.",
+    "Use Report on posts that break these rules. Moderators may remove posts and ban accounts.",
+    "Contact: " + CONTACT
+  ]
+};
+function showLegal(name) {
+  const tabs = document.getElementById("legalTabs");
+  tabs.innerHTML = "";
+  Object.keys(LEGAL).forEach(k => {
+    const b = document.createElement("button");
+    b.className = "auth-tab" + (k === name ? " active" : "");
+    b.textContent = k === "Rules" ? "Community Rules" : k === "Privacy" ? "Privacy Policy" : k;
+    b.onclick = () => showLegal(k);
+    tabs.appendChild(b);
+  });
+  document.getElementById("legalBody").innerHTML = "<ul>" + LEGAL[name].map(t => `<li>${esc(t)}</li>`).join("") + "</ul><p style='font-size:11px;opacity:.7'>Last updated: " + new Date().toLocaleDateString() + "</p>";
+  document.getElementById("legalModal").classList.add("open");
+}
+document.addEventListener("click", e => {
+  const l = e.target.closest(".legal-link");
+  if (l) { e.preventDefault(); showLegal(l.dataset.legal); }
+  const c = e.target.closest("[data-close]");
+  if (c) closeOverlay(c.closest(".modal-overlay"));
+  if (e.target.classList && e.target.classList.contains("modal-overlay")) closeOverlay(e.target);
+});
+function closeOverlay(el) {
+  el.classList.remove("open");
+  if (el.id === "threadModal" && location.hash.startsWith("#post-")) history.replaceState(null, "", location.pathname + location.search);
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") document.querySelectorAll(".modal-overlay.open").forEach(closeOverlay);
+});
+
+// Post links / thread view
+async function openThread(id) {
+  const snap = await getDoc(doc(db, "posts", id));
+  const body = document.getElementById("threadBody");
+  body.innerHTML = "";
+  if (!snap.exists()) body.textContent = "This post doesn't exist (it may have been deleted).";
+  else { await verifiedReady; body.appendChild(createPostCard({ id: snap.id, ...snap.data() })); }
+  document.getElementById("threadModal").classList.add("open");
+}
+function checkHash() {
+  const m = location.hash.match(/^#post-([A-Za-z0-9]+)$/);
+  if (m) openThread(m[1]); else document.getElementById("threadModal").classList.remove("open");
+}
+window.addEventListener("hashchange", checkHash);
+
+// Per-user extras: pinned post, saved posts, moderator button
+let bmUnsub = null;
+function loadUserMeta(u) {
+  myPinnedId = u.pinnedPostId || null;
+  getDoc(doc(db, "admins", currentUser.uid)).then(sn => {
+    isAdmin = sn.exists();
+    document.getElementById("modBtn").style.display = isAdmin ? "inline-block" : "none";
+  }).catch(() => {});
+  if (bmUnsub) bmUnsub();
+  bmUnsub = onSnapshot(collection(db, "users", currentUser.uid, "bookmarks"), sn => {
+    bookmarkIds = new Set(sn.docs.map(d => d.id));
+    document.querySelectorAll(".bm-btn").forEach(b => b.textContent = bookmarkIds.has(b.dataset.pid) ? "📑" : "🔖");
+  }, () => {});
+}
+function resetUserMeta() {
+  if (bmUnsub) bmUnsub();
+  bookmarkIds = new Set(); myPinnedId = null; isAdmin = false;
+  document.getElementById("modBtn").style.display = "none";
+}
+
+// Moderator panel
+async function openMod() {
+  const body = document.getElementById("modBody");
+  body.innerHTML = "<p>Loading…</p>";
+  document.getElementById("modModal").classList.add("open");
+  try {
+    const sn = await getDocs(query(collection(db, "reports"), orderBy("timestamp", "desc"), limit(50)));
+    body.innerHTML = sn.empty ? "<p>No reports 🎉</p>" : "";
+    for (const r of sn.docs) {
+      const rd = r.data();
+      const ps = await getDoc(doc(db, "posts", rd.postId));
+      const p = ps.exists() ? ps.data() : null;
+      const item = document.createElement("div");
+      item.className = "mod-item";
+      item.innerHTML = `<div>${p ? `<strong>${esc(p.authorName)}</strong>: ${esc(p.text || (p.repost ? "(repost)" : p.image ? "(image)" : ""))}` : "<em>Post already deleted</em>"}</div><div class="mod-actions"></div>`;
+      const acts = item.querySelector(".mod-actions");
+      const add = (label, cls, fn) => { const b = document.createElement("button"); b.className = "btn btn-sm " + cls; b.textContent = label; b.onclick = async () => { try { await fn(); item.remove(); } catch (e) { toast(e.message); } }; acts.appendChild(b); };
+      if (p) {
+        add("Delete post", "btn-danger", async () => { await deleteDoc(ps.ref); await deleteDoc(r.ref); document.querySelectorAll(`#post-${ps.id}`).forEach(el => el.remove()); });
+        add("Ban author", "btn-danger", async () => { await setDoc(doc(db, "banned", p.authorId), { timestamp: serverTimestamp() }); toast("Banned"); });
+      }
+      add("Dismiss", "", async () => { await deleteDoc(r.ref); });
+      body.appendChild(item);
+    }
+  } catch (e) { body.innerHTML = "<p>Couldn't load reports.</p>"; }
+}
+document.getElementById("modBtn").onclick = openMod;
+
+// Delete my account
+async function deleteMyAccount() {
+  if (!currentUser) return;
+  if (!confirm("Delete your account? This permanently removes your profile and posts.")) return;
+  if (prompt("Type DELETE to confirm") !== "DELETE") return;
+  try {
+    if (currentUser.providerData[0]?.providerId === "password") {
+      const pw = prompt("Enter your password to confirm:");
+      if (!pw) return;
+      await reauthenticateWithCredential(currentUser, EmailAuthProvider.credential(currentUser.email, pw));
+    } else {
+      await reauthenticateWithPopup(currentUser, googleProvider);
+    }
+    const uid = currentUser.uid;
+    const mine = await getDocs(query(collection(db, "posts"), where("authorId", "==", uid)));
+    await Promise.all(mine.docs.map(d => deleteDoc(d.ref)));
+    for (const sub of ["followers", "following", "blocked", "bookmarks"]) {
+      const sn = await getDocs(collection(db, "users", uid, sub));
+      await Promise.all(sn.docs.map(d => deleteDoc(d.ref)));
+    }
+    await deleteDoc(doc(db, "users", uid));
+    await deleteUser(currentUser);
+    document.querySelectorAll(".modal-overlay.open").forEach(closeOverlay);
+    toast("Your account was deleted.");
+  } catch (err) {
+    toast("Couldn't delete account: " + (/credential|password/.test(err.code || "") ? "wrong password." : err.message));
+  }
+}
+document.getElementById("deleteAccountBtn").onclick = deleteMyAccount;
+
+// Profile photo upload (small square, stored with your profile)
+document.getElementById("avatarFile").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try { document.getElementById("editAvatarInput").value = await resizeImage(f, 96, true, 0.7); toast("Photo ready. Press Save Changes."); }
+  catch (err) { toast(err.message); }
+};
+
+// Trending hashtags
+async function loadTrending() {
+  try {
+    const sn = await getDocs(query(collection(db, "posts"), orderBy("timestamp", "desc"), limit(80)));
+    const weekAgo = Date.now() - 7 * 864e5, counts = {};
+    sn.docs.forEach(d => { const x = d.data(); if ((x.timestamp?.toMillis() || 0) < weekAgo) return; (x.tags || []).forEach(t => counts[t] = (counts[t] || 0) + 1); });
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const list = document.getElementById("trendList");
+    list.innerHTML = "";
+    top.forEach(([t, n]) => {
+      const row = document.createElement("div");
+      row.className = "trend-item"; row.setAttribute("role", "button"); row.tabIndex = 0;
+      row.innerHTML = `<span>#${esc(t)}</span><small>${n} post${n === 1 ? "" : "s"}</small>`;
+      row.onclick = () => setFeedMode("tag:" + t);
+      list.appendChild(row);
+    });
+    document.getElementById("trendCard").style.display = top.length ? "block" : "none";
+  } catch (e) {}
+}
+loadTrending();
+setInterval(loadTrending, 5 * 60 * 1000);
+
+// Notifications permission (desktop alerts while the tab/app is in the background)
+["notifTabBtn", "dmTabBtn"].forEach(id => document.getElementById(id).addEventListener("click", () => {
+  if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+}));
+
+// Offline bar + service worker (installable app)
+const offBar = document.getElementById("offlineBar");
+const updNet = () => { offBar.style.display = navigator.onLine ? "none" : "block"; };
+window.addEventListener("online", updNet); window.addEventListener("offline", updNet); updNet();
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+// Accessibility pass
+const setLabel = (id, t) => { const el = document.getElementById(id); if (el) el.setAttribute("aria-label", t); };
+setLabel("themeBtn", "Toggle dark mode"); setLabel("closeAuthModal", "Close"); setLabel("closeProfileModal", "Close");
+setLabel("userSearch", "Search users or posts"); setLabel("postText", "Write a post"); setLabel("dmInput", "Type a message");
+document.getElementById("toast").setAttribute("aria-live", "polite");
+document.querySelectorAll(".profile-modal,.auth-modal").forEach(m => { m.setAttribute("role", "dialog"); m.setAttribute("aria-modal", "true"); });
+const A11Y = ".author-link,.mention-link,.tag-link,.comment-author,.sr-item,.notif-item,.dm-list-item";
+let a11yQueued = false;
+function a11yPass() {
+  a11yQueued = false;
+  document.querySelectorAll(A11Y).forEach(el => { if (!el.hasAttribute("tabindex")) { el.tabIndex = 0; el.setAttribute("role", "button"); } });
+}
+new MutationObserver(() => { if (!a11yQueued) { a11yQueued = true; requestAnimationFrame(a11yPass); } }).observe(document.body, { childList: true, subtree: true });
+a11yPass();
+document.addEventListener("keydown", e => {
+  const t = e.target;
+  if ((e.key === "Enter" || e.key === " ") && t.getAttribute && t.getAttribute("role") === "button" && t.tagName !== "BUTTON") { e.preventDefault(); t.click(); }
+});
 </script>
 
 </body>
