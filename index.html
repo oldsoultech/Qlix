@@ -286,6 +286,16 @@ body.dark #typingIndicator{ background:#161616; color:#aaa; }
 body.dark #threadBody .post{ background:#2a2a2a; }
 body.dark #emojiBox{ background:#222; } body.dark .mod-item{ border-color:#444; }
 body.dark .poll-opt-btn{ background:rgba(255,255,255,.1); color:#eee; }
+/* composer spacing + layout */
+.card.composer{ padding:18px; margin-bottom:16px; }
+.card.composer textarea{ min-height:96px; margin-bottom:12px; }
+.composer-tools{ align-items:center; gap:8px; margin:0; }
+.composer-tools .btn-sm{ padding:7px 12px; font-size:13px; }
+.composer-spacer{ flex:1; }
+.composer-tools .counter{ margin:0; font-size:11px; }
+#postBtn{ padding:9px 24px; }
+.react-btn{ margin-right:auto; }
+.like-btn.liked{ background:rgba(255,255,255,.3); border-radius:12px; }
 </style>
 </head>
 <body>
@@ -344,7 +354,6 @@ body.dark .poll-opt-btn{ background:rgba(255,255,255,.1); color:#eee; }
 
     <div class="card composer" id="composer" style="display:none;">
       <textarea id="postText" maxlength="500" placeholder="What's on your mind? Use @handle and #tags. Enter to post, Shift+Enter for a new line."></textarea>
-      <div class="counter" id="postCounter">0/500</div>
       <div id="imgPreview"></div>
       <div id="pollBox">
         <input type="text" class="poll-opt" maxlength="40" placeholder="Poll option 1">
@@ -357,8 +366,10 @@ body.dark .poll-opt-btn{ background:rgba(255,255,255,.1); color:#eee; }
         <button type="button" class="btn btn-sm" id="imgBtn" aria-label="Add image">📷 Image</button>
         <button type="button" class="btn btn-sm" id="pollBtn" aria-label="Add poll">📊 Poll</button>
         <input type="file" id="imgInput" accept="image/*" hidden>
+        <span class="composer-spacer"></span>
+        <span class="counter" id="postCounter">0/500</span>
+        <button class="btn primary" id="postBtn">Post</button>
       </div>
-      <button class="btn primary" id="postBtn">Post</button>
     </div>
     <div class="feed-tabs" id="feedTabs"><button class="btn feed-tab active" data-mode="all">All</button><button class="btn feed-tab" data-mode="following">Following</button><button class="btn feed-tab" data-mode="saved">🔖 Saved</button></div>
     <div id="tagBanner"><span id="tagBannerText"></span><button class="btn btn-sm" id="clearTagBtn">✕ Clear</button></div>
@@ -799,9 +810,8 @@ function createPostCard(post) {
     ${img ? `<img class="post-img" src="${img}" alt="Image attached to post">` : ""}
     ${post.poll ? `<div class="poll"></div>` : ""}
     <div class="post-actions">
-      <button class="like-btn" aria-label="React">🤍 <span>0</span></button>
-      <button class="like-btn react-btn" data-picker aria-label="Choose a reaction">😀＋</button>
-      <span class="react-summary"></span>
+      <button class="like-btn" aria-label="React">🤍</button>
+      <button class="like-btn react-btn" data-picker aria-label="Choose a reaction" title="More reactions">😀+</button>
       <button class="like-btn repost-btn" aria-label="Repost" title="Repost">🔁</button>
       <button class="like-btn bm-btn" data-pid="${esc(post.id)}" aria-label="Save post" title="Save">${bookmarkIds.has(post.id) ? "📑" : "🔖"}</button>
       <button class="like-btn share-btn" aria-label="Copy link to post" title="Copy link">🔗</button>
@@ -871,9 +881,9 @@ function createPostCard(post) {
       counts[em] = (counts[em] || 0) + 1;
       if (currentUser && d.id === currentUser.uid) myReaction = em;
     });
-    likeBtn.innerHTML = `${myReaction || "🤍"} <span>${snap.size}</span>`;
+    const tally = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([e, n]) => `${e} ${n}`).join("  ");
+    likeBtn.textContent = tally || "🤍";
     likeBtn.classList.toggle("liked", !!myReaction);
-    card.querySelector(".react-summary").textContent = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([e, n]) => `${e}${n}`).join(" ");
   }, () => {}));
   async function react(em) {
     if (!currentUser) return needLogin();
@@ -1889,7 +1899,7 @@ function attachMentionSuggest(input) {
 attachMentionSuggest(postTextEl);
 
 // ================= Round 3 extras =================
-const CONTACT = "morganbedard@yahoo.com";   // <-- change this to your real contact email
+const CONTACT = "your-email@example.com";   // <-- change this to your real contact email
 const LEGAL = {
   Terms: [
     "You must be at least 13 years old to use Qlix.",
@@ -1909,7 +1919,7 @@ const LEGAL = {
   ],
   Rules: [
     "Be kind. No harassment, bullying, or hate toward people or groups.",
-    "No sexual content, graphic violence, or illegal content.",
+    "No sexual content involving minors, graphic violence, or illegal content.",
     "No spam, scams, or fake accounts.",
     "Don't share other people's private information.",
     "Use Report on posts that break these rules. Moderators may remove posts and ban accounts.",
