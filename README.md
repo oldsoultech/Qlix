@@ -77,7 +77,7 @@ The apps aren't code-signed yet, so your computer may show a warning the first t
 - Post, comment, DM, name and notification text is now escaped, so pasted HTML or scripts can't run in other people's browsers.
 
 ## Known issues
-- Google sign-in may not work inside the desktop and Android apps. Email and password sign-in works everywhere.
+- Google sign-in may not work inside the desktop apps. Email and password sign-in works everywhere.
 - Notifications only arrive while Qlix is open or in the background. Push alerts when it's fully closed aren't supported yet.
 - Images are stored inside posts, so very large or many images make the feed slower. Poll votes can't be changed.
 - Blocking is one-way: a blocked person isn't told, and can still see your public posts.
