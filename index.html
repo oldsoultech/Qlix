@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Qlix 2 (Beta)</title>
+<title>Qlix 2</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#547538">
 <link rel="icon" href="icon-192.png">
@@ -307,6 +307,10 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
 .collab-banner{ background:rgba(255,255,255,.3); border-radius:10px; padding:8px 10px; font-size:12px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
 .collab-with{ font-size:13px; } .collab-name{ cursor:pointer; }
 #collabBox{ display:none; margin-bottom:8px; }
+.avatar-stack{ display:flex; flex-shrink:0; }
+.avatar-stack .profile-pic{ border:2px solid #fff; }
+.avatar-stack .profile-pic + .profile-pic{ margin-left:-14px; }
+.collab-with{ cursor:pointer; }
 </style>
 </head>
 <body>
@@ -314,7 +318,7 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
 <div id="offlineBar" role="status">You're offline. Some things may not load or send until you reconnect.</div>
 
 <header class="topbar">
-  <div class="logo" id="appLogo">Qlix 2 (Beta)</div>
+  <div class="logo" id="appLogo">Qlix 2</div>
   <div style="margin-left:auto; display:flex; gap:8px;">
     <button class="btn" id="modBtn" style="display:none;">🔨 Mod</button>
     <button class="btn" id="themeBtn" title="Dark mode">🌙</button>
@@ -337,7 +341,6 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
         <div id="userHandle" class="user-handle-sub"></div>
       </div>
       <button class="btn primary btn-sm" id="viewMyProfileBtn">View My Profile</button>
-      <button class="btn btn-sm" id="shareMyProfileBtn">🔗 Share my profile</button>
     </div>
   
     <div class="card search-box"><input type="text" id="userSearch" placeholder="Search users…" autocomplete="off"><div id="searchResults"></div></div>
@@ -815,9 +818,11 @@ function createPostCard(post) {
   card.innerHTML = `
     <div class="post-header">
       <div class="author-link" role="button" tabindex="0">
-        <img src="${esc(avatarSrc(post.authorPic, post.authorName))}" alt="${esc(post.authorName)}" class="profile-pic">
+        ${collabOK
+          ? `<span class="avatar-stack"><img src="${esc(avatarSrc(post.authorPic, post.authorName))}" alt="${esc(post.authorName)}" class="profile-pic"><img src="${esc(avatarSrc("", post.collabName))}" alt="${esc(post.collabName)}" class="profile-pic collab-target collab-avatar" role="button" tabindex="0"></span>`
+          : `<img src="${esc(avatarSrc(post.authorPic, post.authorName))}" alt="${esc(post.authorName)}" class="profile-pic">`}
         <div>
-          <strong>${esc(post.authorName)}</strong>${vbadge(post.authorId)}${collabOK ? ` <span class="collab-with">🤝 <strong class="collab-name" role="button" tabindex="0">${esc(post.collabName)}</strong>${vbadge(post.collabUid)}</span>` : ""}
+          <strong>${esc(post.authorName)}</strong>${vbadge(post.authorId)}${collabOK ? ` <span class="collab-with collab-target" role="button" tabindex="0">🤝 <strong class="collab-name">${esc(post.collabName)}</strong>${vbadge(post.collabUid)}</span>` : ""}
           <a class="post-timestamp post-link" href="#post-${esc(post.id)}">${formatDate(post.timestamp)}${post.edited ? " · edited" : ""}</a>
         </div>
       </div>
@@ -849,7 +854,11 @@ function createPostCard(post) {
     </div>
   `;
 
-  card.querySelector(".author-link").onclick = () => openUserProfile(post.authorId);
+  card.querySelector(".author-link").onclick = (e) => {
+    // the collaborator's picture/name and the post time have their own click targets
+    if (e.target.closest(".collab-target, .post-link")) return;
+    openUserProfile(post.authorId);
+  };
   const content = card.querySelector(".post-content");
   bindMentionLinks(card);
   if (blockedIds.has(post.authorId)) card.style.display = "none";
@@ -867,7 +876,13 @@ function createPostCard(post) {
   card.querySelector(".collab-accept")?.addEventListener("click", () => setCollab("accepted"));
   card.querySelector(".collab-decline")?.addEventListener("click", () => setCollab("declined"));
   card.querySelector(".collab-leave")?.addEventListener("click", () => { if (confirm("Leave this collab post? It will be removed from your profile.")) setCollab("declined"); });
-  card.querySelector(".collab-name")?.addEventListener("click", () => openUserProfile(post.collabUid));
+  card.querySelectorAll(".collab-target").forEach(el => el.addEventListener("click", () => openUserProfile(post.collabUid)));
+  if (collabOK) {
+    getDoc(doc(db, "users", post.collabUid)).then(sn => {
+      const im = card.querySelector(".collab-avatar");
+      if (im) im.src = avatarSrc((sn.data() || {}).photoURL, post.collabName);
+    }).catch(() => {});
+  }
 
   if (isAuthor) {
     card.querySelector(".delete-btn").onclick = async () => {
@@ -1118,7 +1133,9 @@ async function openUserProfile(authorId) {
   document.getElementById("modalProfilePic").src = pic;
   document.getElementById("modalProfileName").innerHTML = esc(name) + vbadge(authorId);
   document.getElementById("modalProfileHandle").textContent = handle;
-  document.getElementById("shareProfileBtn").onclick = () => copyLink(profileLink(authorId, userData.handle), name);
+  const shareBtn = document.getElementById("shareProfileBtn");
+  shareBtn.textContent = currentUser && currentUser.uid === authorId ? "🔗 Share my profile" : "🔗 Copy profile link";
+  shareBtn.onclick = () => copyLink(profileLink(authorId, userData.handle), name);
   document.getElementById("modalProfileBio").textContent = bio;
   document.getElementById("modalHeaderBanner").style.backgroundImage = headerUrl ? `url(${JSON.stringify(headerUrl)})` : 'none';
   document.getElementById("userPostsTitle").textContent = `${name}'s Posts`;
@@ -2192,12 +2209,7 @@ document.getElementById("collabBtn").onclick = () => {
 };
 attachMentionSuggest(document.getElementById("collabInput"));
 
-// Share my own profile (sidebar) + clear the link from the address bar when the profile closes
-document.getElementById("shareMyProfileBtn").onclick = () => {
-  if (!currentUser) return;
-  const h = document.getElementById("userHandle").textContent.replace(/^@/, "");
-  copyLink(profileLink(currentUser.uid, h), document.getElementById("userName").textContent);
-};
+// Clear the profile link from the address bar when the profile closes
 document.getElementById("closeProfileModal").addEventListener("click", () => closeOverlay(document.getElementById("profileModal")));
 </script>
 
