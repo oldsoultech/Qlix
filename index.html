@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Qlix 2</title>
+<title>Qlix 2 (Beta)</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#547538">
 <link rel="icon" href="icon-192.png">
@@ -304,6 +304,9 @@ body.dark .poll-opt-btn{ background:rgba(255,255,255,.1); color:#eee; }
 .author-link{ min-width:0; }
 .profile-modal .post{ background:#f3f3f3; text-align:left; }
 body.dark .profile-modal .post{ background:#2a2a2a; }
+.collab-banner{ background:rgba(255,255,255,.3); border-radius:10px; padding:8px 10px; font-size:12px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.collab-with{ font-size:13px; } .collab-name{ cursor:pointer; }
+#collabBox{ display:none; margin-bottom:8px; }
 </style>
 </head>
 <body>
@@ -311,7 +314,7 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
 <div id="offlineBar" role="status">You're offline. Some things may not load or send until you reconnect.</div>
 
 <header class="topbar">
-  <div class="logo" id="appLogo">Qlix 2</div>
+  <div class="logo" id="appLogo">Qlix 2 (Beta)</div>
   <div style="margin-left:auto; display:flex; gap:8px;">
     <button class="btn" id="modBtn" style="display:none;">🔨 Mod</button>
     <button class="btn" id="themeBtn" title="Dark mode">🌙</button>
@@ -369,10 +372,12 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
         <input type="text" class="poll-opt" maxlength="40" placeholder="Option 3 (optional)">
         <input type="text" class="poll-opt" maxlength="40" placeholder="Option 4 (optional)">
       </div>
+      <div id="collabBox"><input type="text" id="collabInput" maxlength="30" placeholder="Who are you collaborating with? Type @handle" aria-label="Collaborator handle"></div>
       <div class="composer-tools">
         <button type="button" class="btn btn-sm" id="emojiBtn" data-picker aria-label="Insert emoji">😊</button>
         <button type="button" class="btn btn-sm" id="imgBtn" aria-label="Add image">📷 Image</button>
         <button type="button" class="btn btn-sm" id="pollBtn" aria-label="Add poll">📊 Poll</button>
+        <button type="button" class="btn btn-sm" id="collabBtn" aria-label="Add a collaborator">🤝 Collab</button>
         <input type="file" id="imgInput" accept="image/*" hidden>
         <span class="composer-spacer"></span>
         <span class="counter" id="postCounter">0/500</span>
@@ -797,22 +802,30 @@ function createPostCard(post) {
   card.dataset.author = post.authorId;
   const isAuthor = currentUser && currentUser.uid === post.authorId;
   const rp = post.repost, img = safeImg(post.image);
+  const collabOK = post.collabUid && post.collabStatus === "accepted";
+  const isCollab = currentUser && post.collabUid === currentUser.uid;
+  const collabBanner = post.collabUid && post.collabStatus === "pending"
+    ? (isCollab ? `<div class="collab-banner">🤝 ${esc(post.authorName)} invited you to collaborate on this post. <button class="btn btn-sm primary collab-accept">Accept</button> <button class="btn btn-sm collab-decline">Decline</button></div>`
+      : isAuthor ? `<div class="collab-banner">🤝 Waiting for ${esc(post.collabName)} to accept.</div>` : "")
+    : "";
+  const collabLeave = (isCollab && post.collabStatus === "accepted") ? `<button class="btn btn-sm collab-leave">Leave collab</button>` : "";
 
   card.innerHTML = `
     <div class="post-header">
       <div class="author-link" role="button" tabindex="0">
         <img src="${esc(avatarSrc(post.authorPic, post.authorName))}" alt="${esc(post.authorName)}" class="profile-pic">
         <div>
-          <strong>${esc(post.authorName)}</strong>${vbadge(post.authorId)}
+          <strong>${esc(post.authorName)}</strong>${vbadge(post.authorId)}${collabOK ? ` <span class="collab-with">🤝 <strong class="collab-name" role="button" tabindex="0">${esc(post.collabName)}</strong>${vbadge(post.collabUid)}</span>` : ""}
           <a class="post-timestamp post-link" href="#post-${esc(post.id)}">${formatDate(post.timestamp)}${post.edited ? " · edited" : ""}</a>
         </div>
       </div>
-      <div class="post-menu">
+      <div class="post-menu">${collabLeave}
         ${isAuthor ? `<button class="btn btn-sm pin-btn" title="Pin to your profile" aria-label="Pin to profile">📌</button><button class="btn btn-sm edit-btn">Edit</button><button class="btn btn-sm btn-danger delete-btn">Delete</button>`
           : (currentUser ? `<button class="btn btn-sm report-btn">Report</button>` : "")}
       </div>
     </div>
     ${rp ? `<div class="repost-meta">🔁 Reposted</div>` : ""}
+    ${collabBanner}
     <div class="post-content">${renderMentions(post.text)}</div>
     ${rp ? `<div class="repost-box"><strong>${esc(rp.authorName)}</strong><div>${renderMentions(rp.text)}</div></div>` : ""}
     ${img ? `<img class="post-img" src="${img}" alt="Image attached to post">` : ""}
@@ -839,6 +852,20 @@ function createPostCard(post) {
   bindMentionLinks(card);
   if (blockedIds.has(post.authorId)) card.style.display = "none";
   if (post.poll) renderPoll(card.querySelector(".poll"), post);
+
+  const setCollab = async (status) => {
+    try {
+      await updateDoc(doc(db, "posts", post.id), { collabStatus: status });
+      post.collabStatus = status;
+      if (status === "accepted") notify(post.authorId, "collab_ok", post.text, post.id);
+      toast(status === "accepted" ? "You're now a collaborator on this post" : "Done");
+      card.replaceWith(createPostCard(post));
+    } catch (e) { toast("Couldn't update: " + e.message); }
+  };
+  card.querySelector(".collab-accept")?.addEventListener("click", () => setCollab("accepted"));
+  card.querySelector(".collab-decline")?.addEventListener("click", () => setCollab("declined"));
+  card.querySelector(".collab-leave")?.addEventListener("click", () => { if (confirm("Leave this collab post? It will be removed from your profile.")) setCollab("declined"); });
+  card.querySelector(".collab-name")?.addEventListener("click", () => openUserProfile(post.collabUid));
 
   if (isAuthor) {
     card.querySelector(".delete-btn").onclick = async () => {
@@ -1040,7 +1067,12 @@ async function fetchFeed(reset = true) {
     } else if (feedMode === "following") {
       const f = currentUser ? await getDocs(collection(db, "users", currentUser.uid, "following")) : { docs: [] };
       const ids = f.docs.map(d => d.id).slice(0, 30);
-      if (ids.length) docs = (await getDocs(query(collection(db, "posts"), where("authorId", "in", ids)))).docs;
+      if (ids.length) {
+        docs = (await getDocs(query(collection(db, "posts"), where("authorId", "in", ids)))).docs;
+        const extra = await getDocs(query(collection(db, "posts"), where("collabUid", "in", ids))).catch(() => ({ docs: [] }));
+        const seen = new Set(docs.map(d => d.id));
+        docs = docs.concat(extra.docs.filter(d => d.data().collabStatus === "accepted" && !seen.has(d.id)));
+      }
     } else if (feedMode === "saved") {
       docs = (await Promise.all([...bookmarkIds].slice(0, 30).map(id => getDoc(doc(db, "posts", id))))).filter(d => d.exists());
     } else if (feedMode.startsWith("q:")) {
@@ -1185,9 +1217,10 @@ async function openUserProfile(authorId) {
   userFeed.innerHTML = "<p style='font-size:12px;'>Loading user posts...</p>";
   
   const snap = await getDocs(query(collection(db, "posts"), where("authorId", "==", authorId)));
+  const snap2 = await getDocs(query(collection(db, "posts"), where("collabUid", "==", authorId))).catch(() => ({ docs: [] }));
   userFeed.innerHTML = "";
 
-  const userPosts = snap.docs
+  const userPosts = [...snap.docs, ...snap2.docs.filter(d => d.data().collabStatus === "accepted")]
     .map(d => ({ id: d.id, ...d.data() }))
     .sort((a,b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
 
@@ -1357,7 +1390,7 @@ function openNotificationsDrawer() {
       item.className = `notif-item ${n.type === 'dm' ? 'notif-dm' : ''}`;
       
       const who = esc(n.senderName);
-      const titles = { mention: `${who} mentioned you`, like: `❤️ ${who} liked your post`, reply: `💬 ${who} replied to your post`, follow: `👤 ${who} followed you`, repost: `🔁 ${who} reposted your post` };
+      const titles = { mention: `${who} mentioned you`, like: `❤️ ${who} liked your post`, reply: `💬 ${who} replied to your post`, follow: `👤 ${who} followed you`, repost: `🔁 ${who} reposted your post`, collab: `🤝 ${who} invited you to collab on a post`, collab_ok: `✅ ${who} accepted your collab` };
       let titleText = titles[n.type] || `${who} mentioned you`;
       if (n.type === "dm") titleText = `💬 New DM from ${esc(n.senderName)}`;
 
@@ -1372,6 +1405,9 @@ function openNotificationsDrawer() {
           openChat(n.senderId, n.senderName);
         } else if (n.type === "follow") {
           openUserProfile(n.senderId);
+        } else if ((n.type === "collab" || n.type === "collab_ok") && n.postId) {
+          document.getElementById("dmDrawer").classList.remove("open");
+          location.hash = "#post-" + n.postId;
         } else if (n.postId) {
           document.getElementById("dmDrawer").classList.remove("open");
           const targetPost = document.getElementById(`post-${n.postId}`);
@@ -1536,7 +1572,7 @@ onAuthStateChanged(auth, async (user) => {
 // Post creation
 const postTextEl = document.getElementById("postText");
 const postBtnEl = document.getElementById("postBtn");
-let pendingImage = "", pollOpen = false;
+let pendingImage = "", pollOpen = false, collabOpen = false;
 
 function setPendingImage(d) {
   pendingImage = d;
@@ -1551,6 +1587,9 @@ function resetComposer() {
   pollOpen = false;
   document.getElementById("pollBox").style.display = "none";
   document.querySelectorAll(".poll-opt").forEach(i => i.value = "");
+  collabOpen = false;
+  document.getElementById("collabBox").style.display = "none";
+  document.getElementById("collabInput").value = "";
 }
 postTextEl.addEventListener("input", () => {
   document.getElementById("postCounter").textContent = `${postTextEl.value.length}/500`;
@@ -1590,6 +1629,16 @@ postBtnEl.onclick = async () => {
   try {
     const userSnap = await getDoc(doc(db, "users", currentUser.uid));
     const u = userSnap.exists() ? userSnap.data() : {};
+    let collabUser = null;
+    if (collabOpen) {
+      const h = document.getElementById("collabInput").value.trim().replace(/^@/, "").toLowerCase();
+      if (!h) throw new Error("type your collaborator's handle, or close the Collab box.");
+      const cq = await getDocs(query(collection(db, "users"), where("handle", "==", h), limit(1)));
+      if (cq.empty) throw new Error(`@${h} wasn't found.`);
+      collabUser = { uid: cq.docs[0].id, ...cq.docs[0].data() };
+      if (collabUser.uid === currentUser.uid) throw new Error("you can't collab with yourself.");
+      if (blockedIds.has(collabUser.uid)) throw new Error("you've blocked that user.");
+    }
     const ref = doc(collection(db, "posts"));
     newestId = ref.id;
     const data = {
@@ -1599,9 +1648,11 @@ postBtnEl.onclick = async () => {
       text, tags: extractTags(text), timestamp: serverTimestamp()
     };
     if (pendingImage) data.image = pendingImage;
+    if (collabUser) { data.collabUid = collabUser.uid; data.collabName = collabUser.displayName || collabUser.handle; data.collabStatus = "pending"; }
     if (options) data.poll = { options };
     await setDoc(ref, data);
     notifyMentions(text, ref.id);
+    if (collabUser) notify(collabUser.uid, "collab", text, ref.id);
     resetComposer();
     if (feedMode === "all" || feedMode === "following") {
       const empty = feedEl.querySelector(".feed-msg");
@@ -1907,7 +1958,7 @@ function attachMentionSuggest(input) {
 attachMentionSuggest(postTextEl);
 
 // ================= Round 3 extras =================
-const CONTACT = "morganbedard@yahoo.com";   // <-- change this to your real contact email
+const CONTACT = "your-email@example.com";   // <-- change this to your real contact email
 const LEGAL = {
   Terms: [
     "You must be at least 13 years old to use Qlix.",
@@ -2114,6 +2165,14 @@ document.addEventListener("keydown", e => {
   const t = e.target;
   if ((e.key === "Enter" || e.key === " ") && t.getAttribute && t.getAttribute("role") === "button" && t.tagName !== "BUTTON") { e.preventDefault(); t.click(); }
 });
+
+// Collab button in the composer
+document.getElementById("collabBtn").onclick = () => {
+  collabOpen = !collabOpen;
+  document.getElementById("collabBox").style.display = collabOpen ? "block" : "none";
+  if (collabOpen) document.getElementById("collabInput").focus();
+};
+attachMentionSuggest(document.getElementById("collabInput"));
 </script>
 
 </body>
