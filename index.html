@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Qlix 2</title>
+<title>Qlix 2 (Beta)</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#547538">
 <link rel="icon" href="icon-192.png">
@@ -314,7 +314,7 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
 <div id="offlineBar" role="status">You're offline. Some things may not load or send until you reconnect.</div>
 
 <header class="topbar">
-  <div class="logo" id="appLogo">Qlix 2</div>
+  <div class="logo" id="appLogo">Qlix 2 (Beta)</div>
   <div style="margin-left:auto; display:flex; gap:8px;">
     <button class="btn" id="modBtn" style="display:none;">🔨 Mod</button>
     <button class="btn" id="themeBtn" title="Dark mode">🌙</button>
@@ -337,6 +337,7 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
         <div id="userHandle" class="user-handle-sub"></div>
       </div>
       <button class="btn primary btn-sm" id="viewMyProfileBtn">View My Profile</button>
+      <button class="btn btn-sm" id="shareMyProfileBtn">🔗 Share my profile</button>
     </div>
   
     <div class="card search-box"><input type="text" id="userSearch" placeholder="Search users…" autocomplete="off"><div id="searchResults"></div></div>
@@ -466,6 +467,7 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
 
       <button class="btn btn-sm" id="toggleEditBtn" style="width: 100%; display: none; background: #eee;">Edit Profile</button>
 
+      <button class="btn btn-sm" id="shareProfileBtn" style="width:100%; background:#eee;">🔗 Copy profile link</button>
       <button class="btn btn-sm" id="modalBlockBtn" style="width:100%; display:none; background:#eee;">Block user</button>
 
       <div id="adminActions" style="display:none; gap:6px; width:100%;"><button class="btn btn-sm" id="verifyBtn" style="flex:1;">Verify ✔</button><button class="btn btn-sm btn-danger" id="banBtn" style="flex:1;">Ban</button></div>
@@ -1116,6 +1118,7 @@ async function openUserProfile(authorId) {
   document.getElementById("modalProfilePic").src = pic;
   document.getElementById("modalProfileName").innerHTML = esc(name) + vbadge(authorId);
   document.getElementById("modalProfileHandle").textContent = handle;
+  document.getElementById("shareProfileBtn").onclick = () => copyLink(profileLink(authorId, userData.handle), name);
   document.getElementById("modalProfileBio").textContent = bio;
   document.getElementById("modalHeaderBanner").style.backgroundImage = headerUrl ? `url(${JSON.stringify(headerUrl)})` : 'none';
   document.getElementById("userPostsTitle").textContent = `${name}'s Posts`;
@@ -2007,7 +2010,7 @@ document.addEventListener("click", e => {
 });
 function closeOverlay(el) {
   el.classList.remove("open");
-  if (el.id === "threadModal" && location.hash.startsWith("#post-")) history.replaceState(null, "", location.pathname + location.search);
+  if ((el.id === "threadModal" && /^#post-/.test(location.hash)) || (el.id === "profileModal" && /^#(user|id)-/.test(location.hash))) history.replaceState(null, "", location.pathname + location.search);
 }
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") document.querySelectorAll(".modal-overlay.open").forEach(closeOverlay);
@@ -2024,7 +2027,22 @@ async function openThread(id) {
 }
 function checkHash() {
   const m = location.hash.match(/^#post-([A-Za-z0-9]+)$/);
-  if (m) openThread(m[1]); else document.getElementById("threadModal").classList.remove("open");
+  if (m) { openThread(m[1]); return; }
+  document.getElementById("threadModal").classList.remove("open");
+  const u = location.hash.match(/^#user-([A-Za-z0-9_]+)$/), id = location.hash.match(/^#id-([A-Za-z0-9]+)$/);
+  if (u) openProfileByHandle(u[1]); else if (id) openUserProfile(id[1]);
+}
+async function openProfileByHandle(h) {
+  const sn = await getDocs(query(collection(db, "users"), where("handle", "==", h.toLowerCase()), limit(1)));
+  if (sn.empty) toast(`@${h} wasn't found.`); else openUserProfile(sn.docs[0].id);
+}
+function profileLink(uid, handle) {
+  return location.origin + location.pathname + (handle ? "#user-" + handle : "#id-" + uid);
+}
+function copyLink(url, title) {
+  if (navigator.share) { navigator.share({ title: "Qlix: " + title, url }).catch(() => {}); return; }
+  (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject())
+    .then(() => toast("Link copied")).catch(() => prompt("Copy this link:", url));
 }
 window.addEventListener("hashchange", checkHash);
 
@@ -2173,6 +2191,14 @@ document.getElementById("collabBtn").onclick = () => {
   if (collabOpen) document.getElementById("collabInput").focus();
 };
 attachMentionSuggest(document.getElementById("collabInput"));
+
+// Share my own profile (sidebar) + clear the link from the address bar when the profile closes
+document.getElementById("shareMyProfileBtn").onclick = () => {
+  if (!currentUser) return;
+  const h = document.getElementById("userHandle").textContent.replace(/^@/, "");
+  copyLink(profileLink(currentUser.uid, h), document.getElementById("userName").textContent);
+};
+document.getElementById("closeProfileModal").addEventListener("click", () => closeOverlay(document.getElementById("profileModal")));
 </script>
 
 </body>
