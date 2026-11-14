@@ -296,6 +296,14 @@ body.dark .poll-opt-btn{ background:rgba(255,255,255,.1); color:#eee; }
 #postBtn{ padding:9px 24px; }
 .react-btn{ margin-right:auto; }
 .like-btn.liked{ background:rgba(255,255,255,.3); border-radius:12px; }
+/* profile / post layout fixes: long links and wide rows no longer push cards out of their box */
+.feed{ grid-template-columns:minmax(0,1fr); }
+.post, .post-content, .repost-box, .comment-content, .modal-body, .user-posts-container, .dm-bubble{ min-width:0; overflow-wrap:anywhere; word-break:break-word; }
+.profile-modal, .auth-modal{ overflow-x:hidden; }
+.post-header{ flex-wrap:wrap; gap:8px; }
+.author-link{ min-width:0; }
+.profile-modal .post{ background:#f3f3f3; text-align:left; }
+body.dark .profile-modal .post{ background:#2a2a2a; }
 </style>
 </head>
 <body>
@@ -305,7 +313,7 @@ body.dark .poll-opt-btn{ background:rgba(255,255,255,.1); color:#eee; }
 <header class="topbar">
   <div class="logo" id="appLogo">Qlix 2 (Beta)</div>
   <div style="margin-left:auto; display:flex; gap:8px;">
-    <button class="btn" id="modBtn" style="display:none;">🛡 Mod</button>
+    <button class="btn" id="modBtn" style="display:none;">🔨 Mod</button>
     <button class="btn" id="themeBtn" title="Dark mode">🌙</button>
     <button class="btn" id="notifTabBtn" style="display:none;">
       🔔 Notifications
@@ -526,7 +534,7 @@ body.dark .poll-opt-btn{ background:rgba(255,255,255,.1); color:#eee; }
 <div class="modal-overlay" id="threadModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
   <div class="modal-body" id="threadBody" style="padding-top:34px;"></div></div></div>
 <div class="modal-overlay" id="modModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
-  <div class="modal-body" style="padding-top:28px;"><h3 style="margin:0;">🛡 Reported posts</h3><div id="modBody"></div></div></div></div>
+  <div class="modal-body" style="padding-top:28px;"><h3 style="margin:0;">🚩 Reported posts</h3><div id="modBody"></div></div></div></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
