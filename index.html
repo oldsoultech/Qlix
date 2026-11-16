@@ -228,9 +228,8 @@ textarea{ min-height:70px; margin-bottom:8px; }
 #mentionBox{ display:none; position:fixed; z-index:150; background:#fff; color:#222; border-radius:10px; box-shadow:var(--shadow); font-size:12px; overflow:hidden; min-width:180px; }
 #mentionBox div{ padding:6px 10px; cursor:pointer; } #mentionBox div:hover{ background:#eee; }
 .tag-link{ color:#1e3799; font-weight:bold; cursor:pointer; } .tag-link:hover{ text-decoration:underline; }
-.search-box{ margin-top:16px; }
 .sr-item{ display:flex; gap:8px; align-items:center; padding:6px; cursor:pointer; border-radius:8px; font-size:12px; }
-.sr-item:hover{ background:rgba(255,255,255,.3); } .sr-empty{ font-size:11px; padding:6px; }
+.sr-item:hover{ background:rgba(0,0,0,.08); } .sr-empty{ font-size:11px; padding:6px; }
 .forgot{ font-size:11px; color:#547538; text-align:center; cursor:pointer; text-decoration:underline; }
 /* Dark mode */
 body.dark{ background:#1f2a17; color:#eee; }
@@ -311,6 +310,31 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
 .avatar-stack .profile-pic{ border:2px solid #fff; }
 .avatar-stack .profile-pic + .profile-pic{ margin-left:-14px; }
 .collab-with{ cursor:pointer; }
+
+/* ---- Round 4: post dropdown, save label, settings, search modal, lists ---- */
+.post-menu{ position:relative; }
+.menu-list{ display:none; position:absolute; right:0; top:100%; margin-top:4px; background:#fff; color:#222; border-radius:12px; box-shadow:var(--shadow); min-width:160px; z-index:20; flex-direction:column; padding:4px; }
+.menu-list.open{ display:flex; }
+.menu-list .btn{ background:none; color:inherit; text-align:left; width:100%; border-radius:8px; font-size:13px; padding:8px 10px; }
+.menu-list .btn:hover{ background:#eee; }
+.menu-list .btn-danger{ color:#c0392b; } .menu-list .btn-danger:hover{ background:#fdecea; }
+body.dark .menu-list{ background:#262626; color:#eee; } body.dark .menu-list .btn:hover{ background:#333; }
+.bm-btn{ font-size:12px; }
+.set-sec{ margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+.set-sec h4{ margin:0; }
+.set-row{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; }
+.set-row input[type=color]{ width:44px; height:30px; padding:0; border:none; background:none; cursor:pointer; }
+.stat-link{ cursor:pointer; }
+#userSearch{ border:1px solid #ccc; }
+/* custom colors (set from Settings) */
+body{ background:var(--c-bg,#547538); }
+body.dark{ background:var(--c-bg,#1f2a17); }
+.topbar{ background:var(--c-top,#000); }
+.logo, .welcome-heading, .app-card strong, .trend-card strong{ color:var(--c-title,#fff); }
+.primary{ color:var(--c-accent,#547538); }
+.dm-bubble.sent{ background:var(--c-sent,#547538); color:var(--c-sent-t,#fff); }
+.dm-bubble.received{ background:var(--c-recv,#e0e0e0); color:var(--c-recv-t,#000); }
+body.dark .dm-bubble.received{ background:var(--c-recv,#333); color:var(--c-recv-t,#eee); }
 </style>
 </head>
 <body>
@@ -321,14 +345,13 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
   <div class="logo" id="appLogo">Qlix 2</div>
   <div style="margin-left:auto; display:flex; gap:8px;">
     <button class="btn" id="modBtn" style="display:none;">🔨 Mod</button>
-    <button class="btn" id="themeBtn" title="Dark mode">🌙</button>
     <button class="btn" id="notifTabBtn" style="display:none;">
       🔔 Notifications
       <span class="notif-badge" id="notifBadge">0</span>
     </button>
     <button class="btn" id="dmTabBtn" style="display:none;">💬 DMs <span class="notif-badge" id="dmBadge">0</span></button>
     <button class="btn primary" id="openAuthModalBtn">Sign In / Register</button>
-    <button class="btn" id="signOutBtn" style="display:none;">Sign Out</button>
+    <button class="btn" id="searchBtn" title="Search" aria-label="Search">🔍</button>
   </div>
 </header>
 
@@ -342,8 +365,6 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
       </div>
       <button class="btn primary btn-sm" id="viewMyProfileBtn">View My Profile</button>
     </div>
-  
-    <div class="card search-box"><input type="text" id="userSearch" placeholder="Search users…" autocomplete="off"><div id="searchResults"></div></div>
 
     <div class="card trend-card" id="trendCard" style="display:none;"><strong>🔥 Trending</strong><div id="trendList"></div></div>
 
@@ -453,10 +474,10 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
       <h3 id="modalProfileName" style="margin: 0;">User Name</h3>
       <div id="modalProfileHandle" style="font-size:12px; color:#666;">@user</div>
       
-      <!-- Followers & Friends Stats -->
+      <!-- Followers & Following Stats (tap to see the lists) -->
       <div class="profile-stats">
-        <div><strong id="modalFollowersCount">0</strong><span>Followers</span></div>
-        <div><strong id="modalFollowingCount">0</strong><span>Following</span></div>
+        <div class="stat-link"><strong id="modalFollowersCount">0</strong><span>Followers</span></div>
+        <div class="stat-link"><strong id="modalFollowingCount">0</strong><span>Following</span></div>
       </div>
 
       <div class="profile-bio" id="modalProfileBio">No bio added yet.</div>
@@ -469,6 +490,7 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
       </div>
 
       <button class="btn btn-sm" id="toggleEditBtn" style="width: 100%; display: none; background: #eee;">Edit Profile</button>
+      <button class="btn btn-sm" id="settingsBtn" style="width: 100%; display: none; background: #eee;">⚙ Settings</button>
 
       <button class="btn btn-sm" id="shareProfileBtn" style="width:100%; background:#eee;">🔗 Copy profile link</button>
       <button class="btn btn-sm" id="modalBlockBtn" style="width:100%; display:none; background:#eee;">Block user</button>
@@ -534,6 +556,38 @@ body.dark .profile-modal .post{ background:#2a2a2a; }
     <button class="btn primary btn-sm" id="sendDmBtn">Send</button>
   </div>
 </div>
+
+<!-- Search -->
+<div class="modal-overlay" id="searchModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
+  <div class="modal-body" style="text-align:left; padding-top:34px;">
+    <input type="text" id="userSearch" placeholder="Search users or posts…" autocomplete="off">
+    <div id="searchResults"></div>
+  </div></div></div>
+
+<!-- Settings -->
+<div class="modal-overlay" id="settingsModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
+  <div class="modal-body" style="text-align:left; padding-top:34px;">
+    <h3 style="margin:0;">⚙ Settings</h3>
+    <div class="set-sec">
+      <h4>Appearance</h4>
+      <div class="set-row"><span>Dark mode</span><button class="btn btn-sm" id="themeBtn" style="font-size:14px;">🌙</button></div>
+      <h4 style="margin-top:6px;">Custom colors</h4>
+      <div id="colorList"></div>
+      <button class="btn btn-sm" id="resetColorsBtn" style="background:#eee; align-self:flex-start;">Reset colors</button>
+    </div>
+    <div class="set-sec">
+      <h4>Blocked users</h4>
+      <div id="blockedList"></div>
+    </div>
+    <div class="set-sec">
+      <h4>Account</h4>
+      <button class="btn btn-danger" id="signOutBtn" style="align-self:flex-start;">Sign Out</button>
+    </div>
+  </div></div></div>
+
+<!-- Followers / Following list -->
+<div class="modal-overlay" id="listModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
+  <div class="modal-body" style="text-align:left; padding-top:34px;"><h3 id="listTitle" style="margin:0;"></h3><div id="listBody"></div></div></div></div>
 
 <div id="toast"></div>
 <div id="mentionBox"></div>
@@ -731,6 +785,7 @@ const verifiedReady = getDocs(collection(db, "verified")).then(sn => { verifiedI
 const vbadge = uid => verifiedIds.has(uid) ? ' <span class="vbadge" title="Verified" aria-label="Verified">✔</span>' : "";
 const safeImg = u => (typeof u === "string" && u.startsWith("data:image/")) ? u : "";
 const needLogin = () => document.getElementById("authModal").classList.add("open");
+const saveLabel = id => bookmarkIds.has(id) ? "✅ Saved" : "🔖 Save";
 
 function showPicker(anchor, list, onPick) {
   const box = document.getElementById("emojiBox");
@@ -826,9 +881,14 @@ function createPostCard(post) {
           <a class="post-timestamp post-link" href="#post-${esc(post.id)}">${formatDate(post.timestamp)}${post.edited ? " · edited" : ""}</a>
         </div>
       </div>
-      <div class="post-menu">${collabLeave}
-        ${isAuthor ? `<button class="btn btn-sm pin-btn" title="Pin to your profile" aria-label="Pin to profile">📌</button><button class="btn btn-sm edit-btn">Edit</button><button class="btn btn-sm btn-danger delete-btn">Delete</button>`
-          : (currentUser ? `<button class="btn btn-sm report-btn">Report</button>` : "")}
+      <div class="post-menu">
+        <button class="btn btn-sm menu-toggle" aria-label="Post options" aria-haspopup="true" title="More options">⋯</button>
+        <div class="menu-list" role="menu">
+          <button class="btn btn-sm copy-link-item" role="menuitem">🔗 Copy link</button>
+          ${collabLeave}
+          ${isAuthor ? `<button class="btn btn-sm edit-btn" role="menuitem">✏️ Edit</button><button class="btn btn-sm pin-btn" role="menuitem">📌 Pin to profile</button><button class="btn btn-sm btn-danger delete-btn" role="menuitem">🗑 Delete</button>`
+            : (currentUser ? `<button class="btn btn-sm report-btn" role="menuitem">🚩 Report</button>` : "")}
+        </div>
       </div>
     </div>
     ${rp ? `<div class="repost-meta">🔁 Reposted</div>` : ""}
@@ -841,8 +901,7 @@ function createPostCard(post) {
       <button class="like-btn" aria-label="React">🤍</button>
       <button class="like-btn react-btn" data-picker aria-label="Choose a reaction" title="More reactions">😀+</button>
       <button class="like-btn repost-btn" aria-label="Repost" title="Repost">🔁</button>
-      <button class="like-btn bm-btn" data-pid="${esc(post.id)}" aria-label="Save post" title="Save">${bookmarkIds.has(post.id) ? "📑" : "🔖"}</button>
-      <button class="like-btn share-btn" aria-label="Copy link to post" title="Copy link">🔗</button>
+      <button class="like-btn bm-btn" data-pid="${esc(post.id)}" aria-label="Save post" title="Save to your Saved tab">${saveLabel(post.id)}</button>
     </div>
     <div class="comments-section">
       <div class="comments-list" id="comments-${post.id}"></div>
@@ -974,14 +1033,14 @@ function createPostCard(post) {
     } catch (e) { toast("Couldn't repost."); }
   };
 
-  // Bookmark + share link
+  // Bookmark + copy link (in the ⋯ menu)
   card.querySelector(".bm-btn").onclick = async () => {
     if (!currentUser) return needLogin();
     const ref = doc(db, "users", currentUser.uid, "bookmarks", post.id);
     if (bookmarkIds.has(post.id)) { await deleteDoc(ref); toast("Removed from saved"); }
     else { await setDoc(ref, { timestamp: serverTimestamp() }); toast("Saved"); }
   };
-  card.querySelector(".share-btn").onclick = () => {
+  card.querySelector(".copy-link-item").onclick = () => {
     const url = location.origin + location.pathname + "#post-" + post.id;
     (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast("Link copied")).catch(() => prompt("Copy this link:", url));
   };
@@ -1108,7 +1167,7 @@ async function fetchFeed(reset = true) {
   if (feedMode !== "all") posts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
   if (reset && feedMode === "all" && posts[0]) newestId = posts[0].id;
   if (reset && !posts.length) {
-    feedEl.innerHTML = `<p class="feed-msg">${feedMode === "following" ? "Follow people to see their posts here." : feedMode === "saved" ? "No saved posts yet. Tap 🔖 on a post." : feedMode === "all" ? "No posts yet. Be the first to post!" : "No posts found."}</p>`;
+    feedEl.innerHTML = `<p class="feed-msg">${feedMode === "following" ? "Follow people to see their posts here." : feedMode === "saved" ? "No saved posts yet. Tap 🔖 Save on a post." : feedMode === "all" ? "No posts yet. Be the first to post!" : "No posts found."}</p>`;
   }
   await verifiedReady;
   posts.forEach(p => feedEl.appendChild(createPostCard(p)));
@@ -1144,6 +1203,12 @@ async function openUserProfile(authorId) {
   const followingSnap = await getDocs(collection(db, "users", authorId, "following"));
   document.getElementById("modalFollowersCount").textContent = followersSnap.size;
   document.getElementById("modalFollowingCount").textContent = followingSnap.size;
+  // anyone can tap these to see the full lists
+  ["modalFollowersCount", "modalFollowingCount"].forEach((id, i) => {
+    const p = document.getElementById(id).parentElement;
+    p.setAttribute("role", "button"); p.tabIndex = 0;
+    p.onclick = () => openUserList(authorId, i ? "following" : "followers");
+  });
 
   const msgBtn = document.getElementById("modalMessageBtn");
   const editBtn = document.getElementById("toggleEditBtn");
@@ -1232,6 +1297,7 @@ async function openUserProfile(authorId) {
     document.getElementById("editBioInput").value = userData.bio || "";
     document.getElementById("editHeaderInput").value = headerUrl;
   }
+  document.getElementById("settingsBtn").style.display = currentUser && currentUser.uid === authorId ? "block" : "none";
 
   const userFeed = document.getElementById("userPostsFeed");
   userFeed.innerHTML = "<p style='font-size:12px;'>Loading user posts...</p>";
@@ -1258,6 +1324,31 @@ async function openUserProfile(authorId) {
   }
 
   document.getElementById("profileModal").classList.add("open");
+}
+
+// Followers / Following list (visible to everyone)
+async function openUserList(uid, kind) {
+  const body = document.getElementById("listBody");
+  document.getElementById("listTitle").textContent = kind === "followers" ? "Followers" : "Following";
+  body.innerHTML = "<p style='font-size:13px;'>Loading…</p>";
+  document.getElementById("listModal").classList.add("open");
+  try {
+    const sn = await getDocs(collection(db, "users", uid, kind));
+    const rows = await Promise.all(sn.docs.map(async d => {
+      const s = await getDoc(doc(db, "users", d.id));
+      return { id: d.id, ...(s.exists() ? s.data() : {}) };
+    }));
+    body.innerHTML = "";
+    const shown = rows.filter(u => !blockedIds.has(u.id));
+    if (!shown.length) { body.innerHTML = "<p style='font-size:13px; opacity:.7;'>Nobody here yet.</p>"; return; }
+    shown.forEach(u => {
+      const r = document.createElement("div");
+      r.className = "sr-item";
+      r.innerHTML = `<img class="profile-pic" style="width:32px;height:32px" src="${esc(avatarSrc(u.photoURL, u.displayName))}" alt="${esc(u.displayName || "User")}"><span>${esc(u.displayName || "User")}${vbadge(u.id)} <small>${u.handle ? "@" + esc(u.handle) : ""}</small></span>`;
+      r.onclick = () => { closeOverlay(document.getElementById("listModal")); openUserProfile(u.id); };
+      body.appendChild(r);
+    });
+  } catch (e) { body.textContent = "Couldn't load this list."; }
 }
 
 // Blocking
@@ -1707,7 +1798,10 @@ document.getElementById("closeProfileModal").onclick = () => {
   document.getElementById("profileModal").classList.remove("open");
 };
 
-document.getElementById("signOutBtn").onclick = () => signOut(auth);
+document.getElementById("signOutBtn").onclick = () => {
+  signOut(auth);
+  document.querySelectorAll(".modal-overlay.open").forEach(closeOverlay);
+};
 
 // Toggle Auth Tabs
 document.getElementById("tabSignIn").onclick = () => {
@@ -1878,10 +1972,10 @@ document.addEventListener("keydown", e => {
   el.addEventListener("click", e => { if (e.target === el) el.classList.remove("open"); });
 });
 
-// Dark mode (remembered)
+// Dark mode (remembered) - the toggle now lives in Settings
 function applyTheme(dark) {
   document.body.classList.toggle("dark", dark);
-  document.getElementById("themeBtn").textContent = dark ? "☀️" : "🌙";
+  document.getElementById("themeBtn").textContent = dark ? "☀️ Light" : "🌙 Dark";
 }
 let darkPref = false;
 try { darkPref = localStorage.getItem("qlixDark") === "1"; } catch {}
@@ -1944,8 +2038,18 @@ document.getElementById("userSearch").addEventListener("input", e => {
 // Post search row + Enter to search
 document.getElementById("userSearch").addEventListener("keydown", e => {
   const v = e.target.value.trim();
-  if (e.key === "Enter" && v) { document.getElementById("searchResults").innerHTML = ""; setFeedMode("q:" + v.replace(/^@/, "")); }
+  if (e.key === "Enter" && v) {
+    document.getElementById("searchResults").innerHTML = "";
+    setFeedMode("q:" + v.replace(/^@/, ""));
+    closeOverlay(document.getElementById("searchModal"));
+  }
 });
+// Search icon in the top bar opens the search window; picking a result closes it
+document.getElementById("searchBtn").onclick = () => {
+  document.getElementById("searchModal").classList.add("open");
+  document.getElementById("userSearch").focus();
+};
+document.getElementById("searchResults").addEventListener("click", () => closeOverlay(document.getElementById("searchModal")));
 
 const mentionBox = document.getElementById("mentionBox");
 function attachMentionSuggest(input) {
@@ -2074,7 +2178,7 @@ function loadUserMeta(u) {
   if (bmUnsub) bmUnsub();
   bmUnsub = onSnapshot(collection(db, "users", currentUser.uid, "bookmarks"), sn => {
     bookmarkIds = new Set(sn.docs.map(d => d.id));
-    document.querySelectorAll(".bm-btn").forEach(b => b.textContent = bookmarkIds.has(b.dataset.pid) ? "📑" : "🔖");
+    document.querySelectorAll(".bm-btn").forEach(b => b.textContent = saveLabel(b.dataset.pid));
   }, () => {});
 }
 function resetUserMeta() {
@@ -2211,6 +2315,85 @@ attachMentionSuggest(document.getElementById("collabInput"));
 
 // Clear the profile link from the address bar when the profile closes
 document.getElementById("closeProfileModal").addEventListener("click", () => closeOverlay(document.getElementById("profileModal")));
+
+// ================= Round 4 =================
+// Post ⋯ dropdown: open one at a time, close on outside click or after picking an item
+document.addEventListener("click", e => {
+  const t = e.target.closest(".menu-toggle");
+  const mine = t ? t.nextElementSibling : null;
+  const wasOpen = mine && mine.classList.contains("open");
+  document.querySelectorAll(".menu-list.open").forEach(m => m.classList.remove("open"));
+  if (mine && !wasOpen) mine.classList.add("open");
+});
+
+// Settings window (opened from your own profile)
+const COLOR_DEFS = [
+  ["bg", "Background", "#547538"],
+  ["title", "Titles & logo", "#ffffff"],
+  ["top", "Top bar", "#000000"],
+  ["sent", "My messages", "#547538"],
+  ["recv", "Their messages", "#e0e0e0"],
+  ["accent", "Button text", "#547538"]
+];
+let customColors = {};
+try { customColors = JSON.parse(localStorage.getItem("qlixColors") || "{}") || {}; } catch {}
+function textFor(hex) {
+  const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? "#000000" : "#ffffff";
+}
+function applyColors() {
+  const s = document.documentElement.style;
+  COLOR_DEFS.forEach(([k]) => { customColors[k] ? s.setProperty("--c-" + k, customColors[k]) : s.removeProperty("--c-" + k); });
+  ["sent", "recv"].forEach(k => { customColors[k] ? s.setProperty("--c-" + k + "-t", textFor(customColors[k])) : s.removeProperty("--c-" + k + "-t"); });
+}
+function saveColors() { try { localStorage.setItem("qlixColors", JSON.stringify(customColors)); } catch {} }
+function renderColors() {
+  const box = document.getElementById("colorList");
+  box.innerHTML = "";
+  COLOR_DEFS.forEach(([k, label, def]) => {
+    const row = document.createElement("label");
+    row.className = "set-row";
+    row.innerHTML = `<span>${label}</span><input type="color" value="${customColors[k] || def}" aria-label="${label} color">`;
+    row.querySelector("input").oninput = e => { customColors[k] = e.target.value; saveColors(); applyColors(); };
+    box.appendChild(row);
+  });
+}
+document.getElementById("resetColorsBtn").onclick = () => { customColors = {}; saveColors(); applyColors(); renderColors(); toast("Colors reset"); };
+applyColors();
+
+async function renderBlocked() {
+  const box = document.getElementById("blockedList");
+  const empty = "<p style='font-size:13px; opacity:.7; margin:0;'>You haven't blocked anyone.</p>";
+  const ids = [...blockedIds];
+  if (!ids.length) { box.innerHTML = empty; return; }
+  box.innerHTML = "<p style='font-size:13px; margin:0;'>Loading…</p>";
+  const users = await Promise.all(ids.map(async id => {
+    const s = await getDoc(doc(db, "users", id)).catch(() => null);
+    return { id, ...((s && s.exists()) ? s.data() : {}) };
+  }));
+  box.innerHTML = "";
+  users.forEach(u => {
+    const row = document.createElement("div");
+    row.className = "set-row";
+    row.innerHTML = `<span style="display:flex; gap:8px; align-items:center;"><img class="profile-pic" style="width:28px;height:28px" src="${esc(avatarSrc(u.photoURL, u.displayName))}" alt="${esc(u.displayName || "User")}"><span>${esc(u.displayName || "User")} <small>${u.handle ? "@" + esc(u.handle) : ""}</small></span></span><button class="btn btn-sm" style="background:#eee; color:#222;">Unblock</button>`;
+    row.querySelector("button").onclick = async () => {
+      try {
+        await deleteDoc(doc(db, "users", currentUser.uid, "blocked", u.id));
+        blockedIds.delete(u.id); applyBlocks();
+        row.remove();
+        if (!box.children.length) box.innerHTML = empty;
+        toast("Unblocked");
+      } catch (e) { toast("Couldn't unblock."); }
+    };
+    box.appendChild(row);
+  });
+}
+document.getElementById("settingsBtn").onclick = () => {
+  if (!currentUser) return;
+  renderColors();
+  renderBlocked();
+  document.getElementById("settingsModal").classList.add("open");
+};
 </script>
 
 </body>
