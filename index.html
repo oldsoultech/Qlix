@@ -254,6 +254,8 @@ body.dark #typingIndicator{ background:#161616; color:#aaa; }
 .img-prev{ position:relative; display:inline-block; margin-bottom:8px; }
 .img-prev img{ max-height:120px; border-radius:10px; display:block; }
 .img-prev button{ position:absolute; top:4px; right:4px; }
+.img-prev video{ max-height:160px; max-width:100%; border-radius:10px; display:block; background:#000; }
+.post-video{ max-width:100%; max-height:480px; border-radius:12px; background:#000; align-self:flex-start; }
 .post-img{ max-width:100%; max-height:420px; border-radius:12px; object-fit:contain; align-self:flex-start; }
 .post-menu{ display:flex; gap:4px; }
 .post-actions{ flex-wrap:wrap; align-items:center; }
@@ -414,6 +416,7 @@ select{ font-family:inherit; padding:6px; border-radius:8px; max-width:60%; }
     <div class="card composer" id="composer" style="display:none;">
       <textarea id="postText" maxlength="500" placeholder="What's on your mind? Use @handle and #tags. Enter to post, Shift+Enter for a new line."></textarea>
       <div id="imgPreview"></div>
+      <div id="vidPreview"></div>
       <div id="pollBox">
         <input type="text" class="poll-opt" maxlength="40" placeholder="Poll option 1">
         <input type="text" class="poll-opt" maxlength="40" placeholder="Poll option 2">
@@ -424,9 +427,11 @@ select{ font-family:inherit; padding:6px; border-radius:8px; max-width:60%; }
       <div class="composer-tools">
         <button type="button" class="btn btn-sm" id="emojiBtn" data-picker aria-label="Insert emoji">😊</button>
         <button type="button" class="btn btn-sm" id="imgBtn" aria-label="Add image">📷 Image</button>
+        <button type="button" class="btn btn-sm" id="vidBtn" aria-label="Add video">🎬 Video</button>
         <button type="button" class="btn btn-sm" id="pollBtn" aria-label="Add poll">📊 Poll</button>
         <button type="button" class="btn btn-sm" id="collabBtn" aria-label="Add a collaborator">🤝 Collab</button>
         <input type="file" id="imgInput" accept="image/*" hidden>
+        <input type="file" id="vidInput" accept="video/mp4,video/webm,video/quicktime" hidden>
         <span class="composer-spacer"></span>
         <span class="counter" id="postCounter">0/500</span>
         <button class="btn primary" id="postBtn">Post</button>
@@ -675,6 +680,7 @@ import {
 
 import { sendPasswordResetEmail, deleteUser, reauthenticateWithCredential, reauthenticateWithPopup, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDP0yDxmCrcIXK_DkdXJZB_XzPRVPXMCyo",
@@ -686,6 +692,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
 
 let currentUser = null;
@@ -857,6 +864,7 @@ let verifiedIds = new Set(), bookmarkIds = new Set(), myPinnedId = null, isAdmin
 const verifiedReady = getDocs(collection(db, "verified")).then(sn => { verifiedIds = new Set(sn.docs.map(d => d.id)); }).catch(() => {});
 const vbadge = uid => verifiedIds.has(uid) ? ' <span class="vbadge" title="Verified" aria-label="Verified">✔</span>' : "";
 const safeImg = u => (typeof u === "string" && u.startsWith("data:image/")) ? u : "";
+const safeVideo = u => (typeof u === "string" && u.startsWith("https://firebasestorage.googleapis.com/")) ? u : "";
 const needLogin = () => document.getElementById("authModal").classList.add("open");
 const saveLabel = id => bookmarkIds.has(id) ? "✅ Saved" : "🔖 Save";
 
@@ -943,7 +951,7 @@ function createPostCard(post) {
   card.id = `post-${post.id}`;
   card.dataset.author = post.authorId;
   const isAuthor = currentUser && currentUser.uid === post.authorId;
-  const rp = post.repost, img = safeImg(post.image);
+  const rp = post.repost, img = safeImg(post.image), vid = safeVideo(post.video && post.video.url);
   const cl = collabList(post);
   const accepted = cl.filter(c => c.status === "accepted");
   const pendingC = cl.filter(c => c.status === "pending");
@@ -981,6 +989,7 @@ function createPostCard(post) {
     <div class="post-content">${renderMentions(post.text)}</div>
     ${rp ? `<div class="repost-box" data-pid="${esc(rp.id || "")}" style="${rp.fromGroup ? "" : "cursor:pointer;"}"><strong>${esc(rp.authorName)}</strong><div>${renderMentions(rp.text)}</div></div>` : ""}
     ${img ? `<img class="post-img" src="${img}" alt="Image attached to post">` : ""}
+    ${vid ? `<video class="post-video" src="${esc(vid)}" controls preload="metadata" playsinline></video>` : ""}
     ${post.poll ? `<div class="poll"></div>` : ""}
     <div class="post-actions">
       <button class="like-btn" aria-label="React">🤍</button>
@@ -1041,6 +1050,7 @@ function createPostCard(post) {
     card.querySelector(".delete-btn").onclick = async () => {
       if (!confirm("Delete this post?")) return;
       await deleteDoc(doc(db, (post.groupId ? "gposts" : "posts"), post.id));
+      if (post.video && post.video.path) deleteObject(sRef(storage, post.video.path)).catch(() => {});
       document.querySelectorAll(`#post-${post.id}`).forEach(el => el.remove());
       toast("Post deleted");
     };
@@ -1052,7 +1062,7 @@ function createPostCard(post) {
       content.replaceChildren(ta, save);
       save.onclick = async () => {
         const t = ta.value.trim();
-        if (!t && !post.image && !post.repost) return;
+        if (!t && !post.image && !post.video && !post.repost) return;
         await updateDoc(doc(db, (post.groupId ? "gposts" : "posts"), post.id), { text: t, edited: true, tags: extractTags(t) });
         post.text = t;
         content.innerHTML = renderMentions(t);
@@ -1786,10 +1796,27 @@ function setPendingImage(d) {
   box.innerHTML = d ? `<div class="img-prev"><img src="${d}" alt="Preview"><button type="button" class="btn btn-sm" id="rmImg" aria-label="Remove image">✕</button></div>` : "";
   if (d) document.getElementById("rmImg").onclick = () => setPendingImage("");
 }
+let pendingVideo = null;
+const MAX_VIDEO_MB = 50, MAX_VIDEO_SEC = 60;
+function setPendingVideo(v) {
+  if (pendingVideo) URL.revokeObjectURL(pendingVideo.previewUrl);
+  pendingVideo = v;
+  const box = document.getElementById("vidPreview");
+  box.innerHTML = "";
+  if (!v) return;
+  const wrap = document.createElement("div"); wrap.className = "img-prev";
+  const vid = document.createElement("video");
+  vid.src = v.previewUrl; vid.controls = true; vid.muted = true; vid.playsInline = true; vid.preload = "metadata";
+  const rm = document.createElement("button");
+  rm.type = "button"; rm.className = "btn btn-sm"; rm.textContent = "✕"; rm.setAttribute("aria-label", "Remove video");
+  rm.onclick = () => setPendingVideo(null);
+  wrap.append(vid, rm); box.appendChild(wrap);
+}
 function resetComposer() {
   postTextEl.value = "";
   document.getElementById("postCounter").textContent = "0/500";
   setPendingImage("");
+  setPendingVideo(null);
   pollOpen = false;
   document.getElementById("pollBox").style.display = "none";
   document.querySelectorAll(".poll-opt").forEach(i => i.value = "");
@@ -1812,9 +1839,36 @@ document.getElementById("imgInput").onchange = async (e) => {
     let d = await resizeImage(f, 720, false, 0.65);
     if (d.length > 350000) d = await resizeImage(f, 560, false, 0.5);
     if (d.length > 350000) return toast("That image is too large. Try a smaller one.");
+    setPendingVideo(null);
     setPendingImage(d);
   } catch (err) { toast(err.message); }
 };
+document.getElementById("vidBtn").onclick = () => document.getElementById("vidInput").click();
+document.getElementById("vidInput").onchange = async (e) => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  if (!/^video\/(mp4|webm|quicktime)$/.test(f.type)) return toast("Use an MP4, WebM or MOV video.");
+  if (f.size > MAX_VIDEO_MB * 1024 * 1024) return toast(`That video is over ${MAX_VIDEO_MB} MB.`);
+  const url = URL.createObjectURL(f);
+  try {
+    const dur = await new Promise((res, rej) => {
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.onloadedmetadata = () => res(v.duration);
+      v.onerror = () => rej(new Error("Your browser can't play that video."));
+      v.src = url;
+    });
+    if (isFinite(dur) && dur > MAX_VIDEO_SEC + 0.5) { URL.revokeObjectURL(url); return toast(`Videos can be up to ${MAX_VIDEO_SEC} seconds.`); }
+  } catch (err) { URL.revokeObjectURL(url); return toast(err.message); }
+  setPendingImage("");
+  setPendingVideo({ file: f, previewUrl: url });
+};
+// only one video plays at a time
+document.addEventListener("play", e => {
+  if (e.target.tagName !== "VIDEO") return;
+  document.querySelectorAll("video.post-video").forEach(v => { if (v !== e.target) v.pause(); });
+}, true);
 document.getElementById("pollBtn").onclick = () => {
   pollOpen = !pollOpen;
   document.getElementById("pollBox").style.display = pollOpen ? "flex" : "none";
@@ -1824,7 +1878,7 @@ document.getElementById("emojiBtn").onclick = (e) =>
 
 postBtnEl.onclick = async () => {
   const text = postTextEl.value.trim().slice(0, 500);
-  if ((!text && !pendingImage) || !currentUser || postBtnEl.disabled) return;
+  if ((!text && !pendingImage && !pendingVideo) || !currentUser || postBtnEl.disabled) return;
   let options = null;
   if (pollOpen) {
     options = [...document.querySelectorAll(".poll-opt")].map(i => i.value.trim()).filter(Boolean);
@@ -1851,6 +1905,16 @@ postBtnEl.onclick = async () => {
     }
     const ref = doc(collection(db, "posts"));
     newestId = ref.id;
+    let videoData = null;
+    if (pendingVideo) {
+      const f = pendingVideo.file;
+      const ext = f.type === "video/webm" ? "webm" : f.type === "video/quicktime" ? "mov" : "mp4";
+      const path = `videos/${currentUser.uid}/${ref.id}.${ext}`;
+      const task = uploadBytesResumable(sRef(storage, path), f, { contentType: f.type });
+      await new Promise((res, rej) => task.on("state_changed",
+        sn => { postBtnEl.textContent = `Uploading ${Math.round(100 * sn.bytesTransferred / sn.totalBytes)}%`; }, rej, res));
+      videoData = { url: await getDownloadURL(task.snapshot.ref), path, type: f.type };
+    }
     const data = {
       authorId: currentUser.uid,
       authorName: u.displayName || currentUser.displayName || currentUser.email,
@@ -1864,7 +1928,9 @@ postBtnEl.onclick = async () => {
       data.collabStatus = Object.fromEntries(collabUsers.map(c => [c.uid, "pending"]));
     }
     if (options) data.poll = { options };
-    await setDoc(ref, data);
+    if (videoData) data.video = videoData;
+    try { await setDoc(ref, data); }
+    catch (e) { if (videoData) deleteObject(sRef(storage, videoData.path)).catch(() => {}); throw e; }
     notifyMentions(text, ref.id);
     collabUsers.forEach(c => notify(c.uid, "collab", text, ref.id));
     resetComposer();
@@ -1877,6 +1943,7 @@ postBtnEl.onclick = async () => {
   } catch (err) {
     toast("Couldn't post: " + err.message);
   }
+  postBtnEl.textContent = "Post";
   postBtnEl.disabled = false;
 };
 
@@ -2304,7 +2371,7 @@ async function openMod() {
       const p = ps.exists() ? ps.data() : null;
       const item = document.createElement("div");
       item.className = "mod-item";
-      item.innerHTML = `<div>${p ? `<strong>${esc(p.authorName)}</strong>: ${esc(p.text || (p.repost ? "(repost)" : p.image ? "(image)" : ""))}` : "<em>Post already deleted</em>"}</div><div class="mod-actions"></div>`;
+      item.innerHTML = `<div>${p ? `<strong>${esc(p.authorName)}</strong>: ${esc(p.text || (p.repost ? "(repost)" : p.image ? "(image)" : p.video ? "(video)" : ""))}` : "<em>Post already deleted</em>"}</div><div class="mod-actions"></div>`;
       const acts = item.querySelector(".mod-actions");
       const add = (label, cls, fn) => { const b = document.createElement("button"); b.className = "btn btn-sm " + cls; b.textContent = label; b.onclick = async () => { try { await fn(); item.remove(); } catch (e) { toast(e.message); } }; acts.appendChild(b); };
       if (p) {
@@ -2334,6 +2401,7 @@ async function deleteMyAccount() {
     const uid = currentUser.uid;
     const mine = await getDocs(query(collection(db, "posts"), where("authorId", "==", uid)));
     await Promise.all(mine.docs.map(d => deleteDoc(d.ref)));
+    mine.docs.forEach(d => { const v = d.data().video; if (v && v.path) deleteObject(sRef(storage, v.path)).catch(() => {}); });
     for (const sub of ["followers", "following", "blocked", "bookmarks"]) {
       const sn = await getDocs(collection(db, "users", uid, sub));
       await Promise.all(sn.docs.map(d => deleteDoc(d.ref)));
@@ -2964,7 +3032,7 @@ async function sendSharedPost(recipientId) {
 function openShareDialog(src) {
   const base = (src.repost && !src.text) ? src.repost : src;
   shareTarget = { id: base.id, authorName: base.authorName || "User", text: (base.text || "").slice(0, 140) };
-  document.getElementById("sharePreview").innerHTML = `<strong>${esc(shareTarget.authorName)}</strong><div>${esc(shareTarget.text || (base.image ? "(image)" : "(post)"))}</div>`;
+  document.getElementById("sharePreview").innerHTML = `<strong>${esc(shareTarget.authorName)}</strong><div>${esc(shareTarget.text || (base.image ? "(image)" : base.video ? "(video)" : "(post)"))}</div>`;
   document.getElementById("shareNote").value = "";
   document.getElementById("shareSearch").value = "";
   const list = document.getElementById("shareList");
