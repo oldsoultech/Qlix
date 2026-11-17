@@ -335,6 +335,13 @@ body.dark{ background:var(--c-bg,#1f2a17); }
 .dm-bubble.sent{ background:var(--c-sent,#547538); color:var(--c-sent-t,#fff); }
 .dm-bubble.received{ background:var(--c-recv,#e0e0e0); color:var(--c-recv-t,#000); }
 body.dark .dm-bubble.received{ background:var(--c-recv,#333); color:var(--c-recv-t,#eee); }
+.auto-link{ color:#1e3799; text-decoration:underline; word-break:break-all; }
+body.dark .auto-link{ color:#8ab4ff; }
+.dm-bubble.sent .auto-link{ color:#d6ecff; }
+.shared-card{ background:rgba(0,0,0,.08); border-left:3px solid #547538; border-radius:8px; padding:6px 8px; margin-top:4px; font-size:12px; cursor:pointer; text-align:left; }
+.dm-bubble.sent .shared-card{ background:rgba(255,255,255,.2); border-left-color:#fff; }
+.send-row{ display:flex; align-items:center; gap:10px; padding:6px 4px; font-size:13px; }
+.send-row .grow{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -589,6 +596,23 @@ body.dark .dm-bubble.received{ background:var(--c-recv,#333); color:var(--c-recv
 <div class="modal-overlay" id="listModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
   <div class="modal-body" style="text-align:left; padding-top:34px;"><h3 id="listTitle" style="margin:0;"></h3><div id="listBody"></div></div></div></div>
 
+<div class="modal-overlay" id="repostModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
+  <div class="modal-body" style="text-align:left; padding-top:34px;">
+    <h3 style="margin:0;">Repost</h3>
+    <textarea id="repostText" maxlength="500" placeholder="Add your thoughts (optional). Leave it empty for a plain repost."></textarea>
+    <div id="repostPreview" class="repost-box"></div>
+    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="counter" id="repostCount" style="margin:0;">0/500</span><button class="btn primary" id="repostGo" style="background:#547538; color:#fff;">Repost</button></div>
+  </div></div></div>
+
+<div class="modal-overlay" id="shareModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
+  <div class="modal-body" style="text-align:left; padding-top:34px;">
+    <h3 style="margin:0;">Send in a message</h3>
+    <div id="sharePreview" class="repost-box"></div>
+    <input type="text" id="shareNote" maxlength="200" placeholder="Add a message (optional)" aria-label="Message to send with the post">
+    <input type="text" id="shareSearch" placeholder="Search a @handle…" autocomplete="off" aria-label="Search people">
+    <div id="shareList"></div>
+  </div></div></div>
+
 <div id="toast"></div>
 <div id="mentionBox"></div>
 <div id="emojiBox"></div>
@@ -718,9 +742,19 @@ function startWelcomeRotation() {
 }
 
 // Mentions
+// Links: only http(s) addresses become clickable; everything is escaped first
+const URL_RE = /(https?:\/\/(?:(?!&quot;|&lt;|&gt;|&apos;)[^\s<])+)/gi;
+function linkHtml(u) {
+  let tail = "";
+  const m = u.match(/[.,!?:;]+$/);
+  if (m) { tail = m[0]; u = u.slice(0, -tail.length); }
+  while (u.endsWith(")") && (u.split(")").length > u.split("(").length)) { tail = ")" + tail; u = u.slice(0, -1); }
+  return `<a class="auto-link" href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>${tail}`;
+}
+const linkify = escaped => escaped.split(URL_RE).map((p, i) => i % 2 ? linkHtml(p) : p).join("");
 function renderMentions(text) {
-  return renderMentionsRaw(esc(text)).replace(/#([a-zA-Z0-9_]+)/g,
-    (m, t) => `<span class="tag-link" data-tag="${t.toLowerCase()}">#${t}</span>`);
+  return esc(text).split(URL_RE).map((p, i) => i % 2 ? linkHtml(p)
+    : renderMentionsRaw(p).replace(/#([a-zA-Z0-9_]+)/g, (m, t) => `<span class="tag-link" data-tag="${t.toLowerCase()}">#${t}</span>`)).join("");
 }
 function renderMentionsRaw(text) {
   if (!text) return "";
@@ -896,22 +930,24 @@ function createPostCard(post) {
         <button class="btn btn-sm menu-toggle" aria-label="Post options" aria-haspopup="true" title="More options">⋯</button>
         <div class="menu-list" role="menu">
           <button class="btn btn-sm copy-link-item" role="menuitem">🔗 Copy link</button>
+          <button class="btn btn-sm send-dm-item" role="menuitem">✉️ Send in a message</button>
           ${collabLeave}
           ${isAuthor ? `<button class="btn btn-sm edit-btn" role="menuitem">✏️ Edit</button><button class="btn btn-sm pin-btn" role="menuitem">📌 Pin to profile</button><button class="btn btn-sm btn-danger delete-btn" role="menuitem">🗑 Delete</button>`
             : (currentUser ? `<button class="btn btn-sm report-btn" role="menuitem">🚩 Report</button>` : "")}
         </div>
       </div>
     </div>
-    ${rp ? `<div class="repost-meta">🔁 Reposted</div>` : ""}
+    ${rp ? `<div class="repost-meta">🔁 ${post.text ? "Quote repost" : "Reposted"}</div>` : ""}
     ${collabBanner}
     <div class="post-content">${renderMentions(post.text)}</div>
-    ${rp ? `<div class="repost-box"><strong>${esc(rp.authorName)}</strong><div>${renderMentions(rp.text)}</div></div>` : ""}
+    ${rp ? `<div class="repost-box" data-pid="${esc(rp.id || "")}" style="cursor:pointer;"><strong>${esc(rp.authorName)}</strong><div>${renderMentions(rp.text)}</div></div>` : ""}
     ${img ? `<img class="post-img" src="${img}" alt="Image attached to post">` : ""}
     ${post.poll ? `<div class="poll"></div>` : ""}
     <div class="post-actions">
       <button class="like-btn" aria-label="React">🤍</button>
       <button class="like-btn react-btn" data-picker aria-label="Choose a reaction" title="More reactions">😀+</button>
-      <button class="like-btn repost-btn" aria-label="Repost" title="Repost">🔁</button>
+      <button class="like-btn repost-btn" aria-label="Repost or quote" title="Repost or quote">🔁</button>
+      <button class="like-btn send-dm-btn" aria-label="Send in a message" title="Send in a message">✉️</button>
       <button class="like-btn bm-btn" data-pid="${esc(post.id)}" aria-label="Save post" title="Save to your Saved tab">${saveLabel(post.id)}</button>
     </div>
     <div class="comments-section">
@@ -931,6 +967,11 @@ function createPostCard(post) {
   };
   const content = card.querySelector(".post-content");
   bindMentionLinks(card);
+  card.querySelector(".repost-box")?.addEventListener("click", e => {
+    if (e.target.closest("a, .mention-link, .tag-link")) return;
+    const id = e.currentTarget.dataset.pid;
+    if (id) location.hash = "#post-" + id;
+  });
   if (blockedIds.has(post.authorId)) card.style.display = "none";
   if (post.poll) renderPoll(card.querySelector(".poll"), post);
 
@@ -1023,29 +1064,17 @@ function createPostCard(post) {
   likeBtn.onclick = () => react(myReaction || "❤️");
   reactBtn.onclick = () => showPicker(reactBtn, REACTIONS, react);
 
-  // Repost
-  card.querySelector(".repost-btn").onclick = async () => {
+  // Repost / quote repost, and send in a message
+  const repostSource = () => post.repost ? { ...post.repost } : { id: post.id, authorId: post.authorId, authorName: post.authorName, text: post.text || "" };
+  card.querySelector(".repost-btn").onclick = () => {
     if (!currentUser) return needLogin();
-    const orig = post.repost ? { ...post.repost } : { id: post.id, authorId: post.authorId, authorName: post.authorName, text: post.text || "" };
+    const orig = repostSource();
     if (orig.authorId === currentUser.uid) return toast("You can't repost your own post.");
-    if (!confirm("Repost this to your followers?")) return;
-    try {
-      const u = (await getDoc(doc(db, "users", currentUser.uid))).data() || {};
-      const ref = doc(collection(db, "posts"));
-      newestId = ref.id;
-      const data = {
-        authorId: currentUser.uid,
-        authorName: u.displayName || currentUser.displayName || currentUser.email,
-        authorPic: u.photoURL || currentUser.photoURL || "",
-        text: "", tags: [], timestamp: serverTimestamp(),
-        repost: { id: orig.id, authorId: orig.authorId, authorName: orig.authorName, text: orig.text }
-      };
-      await setDoc(ref, data);
-      notify(orig.authorId, "repost", orig.text, orig.id);
-      toast("Reposted!");
-      if (feedMode === "all" || feedMode === "following") feedEl.prepend(createPostCard({ id: ref.id, ...data, timestamp: new Date() }));
-    } catch (e) { toast("Couldn't repost."); }
+    openRepostDialog(orig);
   };
+  const sendInDm = () => { if (!currentUser) return needLogin(); openShareDialog(post); };
+  card.querySelector(".send-dm-btn").onclick = sendInDm;
+  card.querySelector(".send-dm-item").onclick = sendInDm;
 
   // Bookmark + copy link (in the ⋯ menu)
   card.querySelector(".bm-btn").onclick = async () => {
@@ -1214,7 +1243,7 @@ async function openUserProfile(authorId) {
   const shareBtn = document.getElementById("shareProfileBtn");
   shareBtn.textContent = currentUser && currentUser.uid === authorId ? "🔗 Share my profile" : "🔗 Copy profile link";
   shareBtn.onclick = () => copyLink(profileLink(authorId, userData.handle), name);
-  document.getElementById("modalProfileBio").textContent = bio;
+  document.getElementById("modalProfileBio").innerHTML = linkify(esc(bio));
   document.getElementById("modalHeaderBanner").style.backgroundImage = headerUrl ? `url(${JSON.stringify(headerUrl)})` : 'none';
   document.getElementById("userPostsTitle").textContent = `${name}'s Posts`;
 
@@ -1445,7 +1474,7 @@ function openChat(targetUserId, targetUserName) {
       bubble.className = `dm-bubble ${m.senderId === currentUser.uid ? 'sent' : 'received'}`;
       const status = m === lastSent ? (m.read ? " · ✓✓ Seen" : " · ✓ Sent") : "";
       bubble.innerHTML = `
-        <div>${esc(m.text)}</div>
+        ${m.text ? `<div>${linkify(esc(m.text))}</div>` : ""}${sharedCard(m.sharedPost)}
         <div class="dm-time">${m.timestamp ? formatDate(m.timestamp) : "Just now"}${status}</div>
       `;
       dmBody.appendChild(bubble);
@@ -1606,7 +1635,7 @@ function openDmsDrawer() {
       item.className = "dm-list-item";
       item.innerHTML = `
         <div class="dm-user-title">${esc(otherName)}</div>
-        <div class="dm-last-snippet">${esc(conv.text)}</div>
+        <div class="dm-last-snippet">${esc(conv.text || (conv.sharedPost ? "📎 Shared a post" : ""))}</div>
         <div style="font-size:9px; color:#999;">${formatDate(conv.timestamp)}</div>
       `;
 
@@ -2423,6 +2452,133 @@ document.getElementById("settingsBtn").onclick = () => {
   renderBlocked();
   document.getElementById("settingsModal").classList.add("open");
 };
+
+// ================= Quote reposts, sharing to DMs, links =================
+function openRepostDialog(orig) {
+  const ta = document.getElementById("repostText"), btn = document.getElementById("repostGo");
+  document.getElementById("repostPreview").innerHTML = `<strong>${esc(orig.authorName)}</strong><div>${renderMentions(orig.text)}</div>`;
+  ta.value = ""; btn.textContent = "Repost"; btn.disabled = false;
+  document.getElementById("repostCount").textContent = "0/500";
+  ta.oninput = () => {
+    btn.textContent = ta.value.trim() ? "Post quote" : "Repost";
+    document.getElementById("repostCount").textContent = ta.value.length + "/500";
+  };
+  ta.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); btn.click(); } };
+  btn.onclick = async () => {
+    btn.disabled = true;
+    await doRepost(orig, ta.value.trim().slice(0, 500));
+    closeOverlay(document.getElementById("repostModal"));
+  };
+  document.getElementById("repostModal").classList.add("open");
+  ta.focus();
+}
+attachMentionSuggest(document.getElementById("repostText"));
+
+async function doRepost(orig, comment) {
+  try {
+    const u = (await getDoc(doc(db, "users", currentUser.uid))).data() || {};
+    const ref = doc(collection(db, "posts"));
+    newestId = ref.id;
+    const data = {
+      authorId: currentUser.uid,
+      authorName: u.displayName || currentUser.displayName || currentUser.email,
+      authorPic: u.photoURL || currentUser.photoURL || "",
+      text: comment, tags: extractTags(comment), timestamp: serverTimestamp(),
+      repost: { id: orig.id, authorId: orig.authorId, authorName: orig.authorName, text: orig.text }
+    };
+    await setDoc(ref, data);
+    if (comment) notifyMentions(comment, ref.id);
+    notify(orig.authorId, "repost", comment || orig.text, orig.id);
+    toast(comment ? "Quote posted!" : "Reposted!");
+    if (feedMode === "all" || feedMode === "following") feedEl.prepend(createPostCard({ id: ref.id, ...data, timestamp: new Date() }));
+  } catch (e) { toast("Couldn't repost."); }
+}
+
+// Shared posts inside chats
+function sharedCard(sp) {
+  if (!sp || !sp.id) return "";
+  return `<div class="shared-card" data-pid="${esc(sp.id)}" role="button" tabindex="0"><strong>${esc(sp.authorName || "Post")}</strong><div>${esc(sp.text || "(post)")}</div></div>`;
+}
+document.getElementById("dmBody").addEventListener("click", e => {
+  const c = e.target.closest(".shared-card");
+  if (!c) return;
+  document.getElementById("dmDrawer").classList.remove("open");
+  location.hash = "#post-" + c.dataset.pid;
+});
+
+// Send a post to someone in a message
+let shareTarget = null, shareTimer;
+async function shareSuggestions() {
+  const me = currentUser.uid;
+  const [f1, f2] = await Promise.all([getDocs(collection(db, "users", me, "following")), getDocs(collection(db, "users", me, "followers"))]);
+  const ids = [...new Set([...f1.docs, ...f2.docs].map(d => d.id))].filter(id => id !== me && !blockedIds.has(id)).slice(0, 20);
+  const users = await Promise.all(ids.map(async id => ({ id, ...(((await getDoc(doc(db, "users", id))).data()) || {}) })));
+  return users.filter(u => u.displayName || u.handle);
+}
+function renderShareRows(users) {
+  const list = document.getElementById("shareList");
+  list.innerHTML = "";
+  users = users.filter(u => u.id !== currentUser.uid && !blockedIds.has(u.id));
+  if (!users.length) { list.innerHTML = "<p style='font-size:13px; opacity:.7;'>No one to show yet. Search a @handle above.</p>"; return; }
+  users.forEach(u => {
+    const row = document.createElement("div");
+    row.className = "send-row";
+    row.innerHTML = `<img class="profile-pic" style="width:32px;height:32px" src="${esc(avatarSrc(u.photoURL, u.displayName))}" alt="${esc(u.displayName || "User")}"><div class="grow"><strong>${esc(u.displayName || "User")}</strong> <small>${u.handle ? "@" + esc(u.handle) : ""}</small></div>`;
+    const b = document.createElement("button");
+    b.className = "btn btn-sm primary"; b.style.cssText = "background:#547538; color:#fff;"; b.textContent = "Send";
+    b.onclick = async () => {
+      b.disabled = true;
+      try { await sendSharedPost(u.id); b.textContent = "Sent ✓"; }
+      catch (err) { b.disabled = false; toast("Couldn't send. They may have blocked you."); }
+    };
+    row.appendChild(b);
+    list.appendChild(row);
+  });
+}
+async function sendSharedPost(recipientId) {
+  if (!shareTarget || !currentUser) return;
+  const note = document.getElementById("shareNote").value.trim().slice(0, 200);
+  const name = currentUser.displayName || currentUser.email;
+  await addDoc(collection(db, "direct_messages"), {
+    participants: [currentUser.uid, recipientId],
+    senderId: currentUser.uid, senderName: name,
+    text: note, sharedPost: shareTarget, read: false, timestamp: serverTimestamp()
+  });
+  await addDoc(collection(db, "notifications"), {
+    recipientId, senderId: currentUser.uid, senderName: name,
+    type: "dm", snippet: note || "Shared a post with you", timestamp: serverTimestamp(), read: false
+  });
+}
+function openShareDialog(src) {
+  const base = (src.repost && !src.text) ? src.repost : src;
+  shareTarget = { id: base.id, authorName: base.authorName || "User", text: (base.text || "").slice(0, 140) };
+  document.getElementById("sharePreview").innerHTML = `<strong>${esc(shareTarget.authorName)}</strong><div>${esc(shareTarget.text || (base.image ? "(image)" : "(post)"))}</div>`;
+  document.getElementById("shareNote").value = "";
+  document.getElementById("shareSearch").value = "";
+  const list = document.getElementById("shareList");
+  list.innerHTML = "<p style='font-size:13px;'>Loading…</p>";
+  document.getElementById("shareModal").classList.add("open");
+  shareSuggestions().then(renderShareRows).catch(() => { list.innerHTML = "<p style='font-size:13px; opacity:.7;'>Couldn't load people. Search a @handle above.</p>"; });
+}
+document.getElementById("shareSearch").addEventListener("input", e => {
+  clearTimeout(shareTimer);
+  const v = e.target.value.trim().replace(/^@/, "");
+  shareTimer = setTimeout(async () => {
+    try { renderShareRows(v ? await findHandles(v) : await shareSuggestions()); } catch (err) {}
+  }, 250);
+});
+
+// Links that point to Qlix itself open in the app instead of a new tab
+document.addEventListener("click", e => {
+  const a = e.target.closest("a.auto-link");
+  if (!a) return;
+  const base = location.origin + location.pathname;
+  if (a.href.startsWith(base + "#")) {
+    e.preventDefault();
+    document.getElementById("dmDrawer").classList.remove("open");
+    location.hash = a.href.slice(base.length + 1);
+  }
+});
 </script>
 
 <script type="module" src="account-switcher.js"></script>
