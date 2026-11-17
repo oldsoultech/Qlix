@@ -638,6 +638,7 @@ select{ font-family:inherit; padding:6px; border-radius:8px; max-width:60%; }
   <div class="modal-body" style="text-align:left; padding-top:34px;">
     <h3 style="margin:0;">Repost</h3>
     <textarea id="repostText" maxlength="500" placeholder="Add your thoughts (optional). Leave it empty for a plain repost."></textarea>
+    <label class="set-row" id="repostDestRow"><span>Post to</span><select id="repostDest"></select></label>
     <div id="repostPreview" class="repost-box"></div>
     <div style="display:flex; justify-content:space-between; align-items:center;"><span class="counter" id="repostCount" style="margin:0;">0/500</span><button class="btn primary" id="repostGo" style="background:#547538; color:#fff;">Repost</button></div>
   </div></div></div>
@@ -978,7 +979,7 @@ function createPostCard(post) {
     ${rp ? `<div class="repost-meta">🔁 ${post.text ? "Quote repost" : "Reposted"}</div>` : ""}
     ${collabBanner}
     <div class="post-content">${renderMentions(post.text)}</div>
-    ${rp ? `<div class="repost-box" data-pid="${esc(rp.id || "")}" style="${post.groupId ? "" : "cursor:pointer;"}"><strong>${esc(rp.authorName)}</strong><div>${renderMentions(rp.text)}</div></div>` : ""}
+    ${rp ? `<div class="repost-box" data-pid="${esc(rp.id || "")}" style="${rp.fromGroup ? "" : "cursor:pointer;"}"><strong>${esc(rp.authorName)}</strong><div>${renderMentions(rp.text)}</div></div>` : ""}
     ${img ? `<img class="post-img" src="${img}" alt="Image attached to post">` : ""}
     ${post.poll ? `<div class="poll"></div>` : ""}
     <div class="post-actions">
@@ -1008,7 +1009,7 @@ function createPostCard(post) {
   card.querySelector(".repost-box")?.addEventListener("click", e => {
     if (e.target.closest("a, .mention-link, .tag-link")) return;
     const id = e.currentTarget.dataset.pid;
-    if (id && !post.groupId) location.hash = "#post-" + id;
+    if (id && !rp.fromGroup) location.hash = "#post-" + id;
   });
   if (blockedIds.has(post.authorId)) card.style.display = "none";
   if (post.poll) renderPoll(card.querySelector(".poll"), post);
@@ -1103,7 +1104,7 @@ function createPostCard(post) {
   reactBtn.onclick = () => showPicker(reactBtn, REACTIONS, react);
 
   // Repost / quote repost, and send in a message
-  const repostSource = () => post.repost ? { ...post.repost } : { id: post.id, authorId: post.authorId, authorName: post.authorName, text: post.text || "" };
+  const repostSource = () => post.repost ? { ...post.repost } : { id: post.id, authorId: post.authorId, authorName: post.authorName, text: post.text || "", fromGroup: !!post.groupId };
   card.querySelector(".repost-btn").onclick = () => {
     if (!currentUser) return needLogin();
     const orig = repostSource();
@@ -2498,7 +2499,7 @@ document.getElementById("settingsBtn").onclick = () => {
 };
 
 // ================= Groups =================
-let groupCtx = null, myGroupsUnsub = null;
+let groupCtx = null, myGroupsUnsub = null, myGroupList = [];
 const gDocRef = id => doc(db, "groups", id);
 const myName = () => document.getElementById("userName").textContent || currentUser.displayName || currentUser.email;
 
@@ -2509,6 +2510,7 @@ function listenMyGroups() {
     const list = document.getElementById("myGroupsList");
     list.innerHTML = "";
     const items = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    myGroupList = items;
     if (!items.length) list.innerHTML = "<div class='group-empty'>You're not in any groups yet.</div>";
     items.slice(0, 6).forEach(g => {
       const r = document.createElement("div");
@@ -2521,7 +2523,7 @@ function listenMyGroups() {
 }
 function resetGroups() {
   if (myGroupsUnsub) myGroupsUnsub();
-  myGroupsUnsub = null; groupCtx = null;
+  myGroupsUnsub = null; groupCtx = null; myGroupList = [];
   document.getElementById("groupsCard").style.display = "none";
 }
 
@@ -2829,6 +2831,12 @@ async function deleteGroup() {
 function openRepostDialog(orig, groupId = null) {
   const ta = document.getElementById("repostText"), btn = document.getElementById("repostGo");
   document.getElementById("repostPreview").innerHTML = `<strong>${esc(orig.authorName)}</strong><div>${renderMentions(orig.text)}</div>`;
+  const dest = document.getElementById("repostDest"), destRow = document.getElementById("repostDestRow");
+  dest.innerHTML = '<option value="">🌐 Main feed</option>';
+  myGroupList.forEach(g => { const o = document.createElement("option"); o.value = g.id; o.textContent = "👥 " + (g.name || "Group"); dest.appendChild(o); });
+  dest.value = "";
+  // a repost of a group post always stays in that group
+  destRow.style.display = groupId ? "none" : "flex";
   ta.value = ""; btn.textContent = "Repost"; btn.disabled = false;
   document.getElementById("repostCount").textContent = "0/500";
   ta.oninput = () => {
@@ -2838,7 +2846,7 @@ function openRepostDialog(orig, groupId = null) {
   ta.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); btn.click(); } };
   btn.onclick = async () => {
     btn.disabled = true;
-    await doRepost(orig, ta.value.trim().slice(0, 500), groupId);
+    await doRepost(orig, ta.value.trim().slice(0, 500), groupId || dest.value || null);
     closeOverlay(document.getElementById("repostModal"));
   };
   document.getElementById("repostModal").classList.add("open");
@@ -2856,12 +2864,12 @@ async function doRepost(orig, comment, groupId = null) {
       authorName: u.displayName || currentUser.displayName || currentUser.email,
       authorPic: u.photoURL || currentUser.photoURL || "",
       text: comment, tags: extractTags(comment), timestamp: serverTimestamp(),
-      repost: { id: orig.id, authorId: orig.authorId, authorName: orig.authorName, text: orig.text }
+      repost: { id: orig.id, authorId: orig.authorId, authorName: orig.authorName, text: orig.text, ...(orig.fromGroup ? { fromGroup: true } : {}) }
     };
     if (groupId) data.groupId = groupId;
     await setDoc(ref, data);
     if (comment) notifyMentions(comment, ref.id);
-    notify(orig.authorId, "repost", comment || orig.text, groupId ? null : orig.id);
+    notify(orig.authorId, "repost", comment || orig.text, orig.fromGroup ? null : orig.id);
     toast(comment ? "Quote posted!" : "Reposted!");
     if (groupId) {
       if (groupCtx && groupCtx.id === groupId) setGroupTab("posts");
