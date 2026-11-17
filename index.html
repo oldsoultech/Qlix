@@ -397,7 +397,7 @@ body.dark .dm-bubble.received{ background:var(--c-recv,#333); color:var(--c-recv
         <input type="text" class="poll-opt" maxlength="40" placeholder="Option 3 (optional)">
         <input type="text" class="poll-opt" maxlength="40" placeholder="Option 4 (optional)">
       </div>
-      <div id="collabBox"><input type="text" id="collabInput" maxlength="30" placeholder="Who are you collaborating with? Type @handle" aria-label="Collaborator handle"></div>
+      <div id="collabBox"><input type="text" id="collabInput" maxlength="120" placeholder="Collaborators, up to 3 (4 people total): @alex @sam @jo" aria-label="Collaborator handles"></div>
       <div class="composer-tools">
         <button type="button" class="btn btn-sm" id="emojiBtn" data-picker aria-label="Insert emoji">😊</button>
         <button type="button" class="btn btn-sm" id="imgBtn" aria-label="Add image">📷 Image</button>
@@ -854,6 +854,15 @@ function renderPoll(el, post) {
   }, () => {}));
 }
 
+// Collaborators of a post: [{uid, name, status}] (works for old single-collab posts too)
+function collabList(post) {
+  if (Array.isArray(post.collabUids)) {
+    return post.collabUids.map(u => ({ uid: u, name: (post.collabNames || {})[u] || "User", status: (post.collabStatus || {})[u] || "pending" }));
+  }
+  if (post.collabUid) return [{ uid: post.collabUid, name: post.collabName || "User", status: post.collabStatus || "pending" }];
+  return [];
+}
+
 // Post Card Creation
 function createPostCard(post) {
   const card = document.createElement("div");
@@ -862,22 +871,24 @@ function createPostCard(post) {
   card.dataset.author = post.authorId;
   const isAuthor = currentUser && currentUser.uid === post.authorId;
   const rp = post.repost, img = safeImg(post.image);
-  const collabOK = post.collabUid && post.collabStatus === "accepted";
-  const isCollab = currentUser && post.collabUid === currentUser.uid;
-  const collabBanner = post.collabUid && post.collabStatus === "pending"
-    ? (isCollab ? `<div class="collab-banner">🤝 ${esc(post.authorName)} invited you to collaborate on this post. <button class="btn btn-sm primary collab-accept">Accept</button> <button class="btn btn-sm collab-decline">Decline</button></div>`
-      : isAuthor ? `<div class="collab-banner">🤝 Waiting for ${esc(post.collabName)} to accept.</div>` : "")
-    : "";
-  const collabLeave = (isCollab && post.collabStatus === "accepted") ? `<button class="btn btn-sm collab-leave">Leave collab</button>` : "";
+  const cl = collabList(post);
+  const accepted = cl.filter(c => c.status === "accepted");
+  const pendingC = cl.filter(c => c.status === "pending");
+  const collabOK = accepted.length > 0;
+  const myCollab = currentUser ? cl.find(c => c.uid === currentUser.uid) : null;
+  const collabBanner = (myCollab && myCollab.status === "pending")
+    ? `<div class="collab-banner">🤝 ${esc(post.authorName)} invited you to collaborate on this post. <button class="btn btn-sm primary collab-accept">Accept</button> <button class="btn btn-sm collab-decline">Decline</button></div>`
+    : (isAuthor && pendingC.length ? `<div class="collab-banner">🤝 Waiting for ${esc(pendingC.map(c => c.name).join(", "))} to accept.</div>` : "");
+  const collabLeave = (myCollab && myCollab.status === "accepted") ? `<button class="btn btn-sm collab-leave">Leave collab</button>` : "";
 
   card.innerHTML = `
     <div class="post-header">
       <div class="author-link" role="button" tabindex="0">
         ${collabOK
-          ? `<span class="avatar-stack"><img src="${esc(avatarSrc(post.authorPic, post.authorName))}" alt="${esc(post.authorName)}" class="profile-pic"><img src="${esc(avatarSrc("", post.collabName))}" alt="${esc(post.collabName)}" class="profile-pic collab-target collab-avatar" role="button" tabindex="0"></span>`
+          ? `<span class="avatar-stack"><img src="${esc(avatarSrc(post.authorPic, post.authorName))}" alt="${esc(post.authorName)}" class="profile-pic">${accepted.map(c => `<img src="${esc(avatarSrc("", c.name))}" alt="${esc(c.name)}" class="profile-pic collab-target collab-avatar" data-uid="${esc(c.uid)}" role="button" tabindex="0">`).join("")}</span>`
           : `<img src="${esc(avatarSrc(post.authorPic, post.authorName))}" alt="${esc(post.authorName)}" class="profile-pic">`}
         <div>
-          <strong>${esc(post.authorName)}</strong>${vbadge(post.authorId)}${collabOK ? ` <span class="collab-with collab-target" role="button" tabindex="0">🤝 <strong class="collab-name">${esc(post.collabName)}</strong>${vbadge(post.collabUid)}</span>` : ""}
+          <strong>${esc(post.authorName)}</strong>${vbadge(post.authorId)}${collabOK ? ` <span class="collab-with">🤝 ${accepted.map(c => `<span class="collab-target" data-uid="${esc(c.uid)}" role="button" tabindex="0"><strong class="collab-name">${esc(c.name)}</strong>${vbadge(c.uid)}</span>`).join(", ")}</span>` : ""}
           <a class="post-timestamp post-link" href="#post-${esc(post.id)}">${formatDate(post.timestamp)}${post.edited ? " · edited" : ""}</a>
         </div>
       </div>
@@ -925,8 +936,14 @@ function createPostCard(post) {
 
   const setCollab = async (status) => {
     try {
-      await updateDoc(doc(db, "posts", post.id), { collabStatus: status });
-      post.collabStatus = status;
+      const me = currentUser.uid;
+      if (Array.isArray(post.collabUids)) {
+        await updateDoc(doc(db, "posts", post.id), { ["collabStatus." + me]: status });
+        post.collabStatus = { ...(post.collabStatus || {}), [me]: status };
+      } else {
+        await updateDoc(doc(db, "posts", post.id), { collabStatus: status });
+        post.collabStatus = status;
+      }
       if (status === "accepted") notify(post.authorId, "collab_ok", post.text, post.id);
       toast(status === "accepted" ? "You're now a collaborator on this post" : "Done");
       card.replaceWith(createPostCard(post));
@@ -935,13 +952,10 @@ function createPostCard(post) {
   card.querySelector(".collab-accept")?.addEventListener("click", () => setCollab("accepted"));
   card.querySelector(".collab-decline")?.addEventListener("click", () => setCollab("declined"));
   card.querySelector(".collab-leave")?.addEventListener("click", () => { if (confirm("Leave this collab post? It will be removed from your profile.")) setCollab("declined"); });
-  card.querySelectorAll(".collab-target").forEach(el => el.addEventListener("click", () => openUserProfile(post.collabUid)));
-  if (collabOK) {
-    getDoc(doc(db, "users", post.collabUid)).then(sn => {
-      const im = card.querySelector(".collab-avatar");
-      if (im) im.src = avatarSrc((sn.data() || {}).photoURL, post.collabName);
-    }).catch(() => {});
-  }
+  card.querySelectorAll(".collab-target").forEach(el => el.addEventListener("click", () => openUserProfile(el.dataset.uid)));
+  card.querySelectorAll(".collab-avatar").forEach(im => {
+    getDoc(doc(db, "users", im.dataset.uid)).then(sn => { im.src = avatarSrc((sn.data() || {}).photoURL, im.alt); }).catch(() => {});
+  });
 
   if (isAuthor) {
     card.querySelector(".delete-btn").onclick = async () => {
@@ -1145,9 +1159,14 @@ async function fetchFeed(reset = true) {
       const ids = f.docs.map(d => d.id).slice(0, 30);
       if (ids.length) {
         docs = (await getDocs(query(collection(db, "posts"), where("authorId", "in", ids)))).docs;
-        const extra = await getDocs(query(collection(db, "posts"), where("collabUid", "in", ids))).catch(() => ({ docs: [] }));
+        const e1 = await getDocs(query(collection(db, "posts"), where("collabUid", "in", ids))).catch(() => ({ docs: [] }));
+        const e2 = await getDocs(query(collection(db, "posts"), where("collabUids", "array-contains-any", ids))).catch(() => ({ docs: [] }));
         const seen = new Set(docs.map(d => d.id));
-        docs = docs.concat(extra.docs.filter(d => d.data().collabStatus === "accepted" && !seen.has(d.id)));
+        docs = docs.concat([...e1.docs, ...e2.docs].filter(d => {
+          if (seen.has(d.id)) return false;
+          seen.add(d.id);
+          return collabList(d.data()).some(c => ids.includes(c.uid) && c.status === "accepted");
+        }));
       }
     } else if (feedMode === "saved") {
       docs = (await Promise.all([...bookmarkIds].slice(0, 30).map(id => getDoc(doc(db, "posts", id))))).filter(d => d.exists());
@@ -1304,9 +1323,11 @@ async function openUserProfile(authorId) {
   
   const snap = await getDocs(query(collection(db, "posts"), where("authorId", "==", authorId)));
   const snap2 = await getDocs(query(collection(db, "posts"), where("collabUid", "==", authorId))).catch(() => ({ docs: [] }));
+  const snap3 = await getDocs(query(collection(db, "posts"), where("collabUids", "array-contains", authorId))).catch(() => ({ docs: [] }));
+  const accHere = d => collabList(d.data()).some(c => c.uid === authorId && c.status === "accepted");
   userFeed.innerHTML = "";
 
-  const userPosts = [...snap.docs, ...snap2.docs.filter(d => d.data().collabStatus === "accepted")]
+  const userPosts = [...snap.docs, ...snap2.docs.filter(accHere), ...snap3.docs.filter(accHere)]
     .map(d => ({ id: d.id, ...d.data() }))
     .sort((a,b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
 
@@ -1740,15 +1761,19 @@ postBtnEl.onclick = async () => {
   try {
     const userSnap = await getDoc(doc(db, "users", currentUser.uid));
     const u = userSnap.exists() ? userSnap.data() : {};
-    let collabUser = null;
+    let collabUsers = [];
     if (collabOpen) {
-      const h = document.getElementById("collabInput").value.trim().replace(/^@/, "").toLowerCase();
-      if (!h) throw new Error("type your collaborator's handle, or close the Collab box.");
-      const cq = await getDocs(query(collection(db, "users"), where("handle", "==", h), limit(1)));
-      if (cq.empty) throw new Error(`@${h} wasn't found.`);
-      collabUser = { uid: cq.docs[0].id, ...cq.docs[0].data() };
-      if (collabUser.uid === currentUser.uid) throw new Error("you can't collab with yourself.");
-      if (blockedIds.has(collabUser.uid)) throw new Error("you've blocked that user.");
+      const handles = [...new Set(document.getElementById("collabInput").value.split(/[\s,]+/).map(h => h.replace(/^@/, "").toLowerCase()).filter(Boolean))];
+      if (!handles.length) throw new Error("type your collaborators' @handles, or close the Collab box.");
+      if (handles.length > 3) throw new Error("you can add up to 3 collaborators (4 people in total).");
+      for (const h of handles) {
+        const cq = await getDocs(query(collection(db, "users"), where("handle", "==", h), limit(1)));
+        if (cq.empty) throw new Error(`@${h} wasn't found.`);
+        const cu = { uid: cq.docs[0].id, ...cq.docs[0].data() };
+        if (cu.uid === currentUser.uid) throw new Error("you can't collab with yourself.");
+        if (blockedIds.has(cu.uid)) throw new Error(`you've blocked @${h}.`);
+        collabUsers.push(cu);
+      }
     }
     const ref = doc(collection(db, "posts"));
     newestId = ref.id;
@@ -1759,11 +1784,15 @@ postBtnEl.onclick = async () => {
       text, tags: extractTags(text), timestamp: serverTimestamp()
     };
     if (pendingImage) data.image = pendingImage;
-    if (collabUser) { data.collabUid = collabUser.uid; data.collabName = collabUser.displayName || collabUser.handle; data.collabStatus = "pending"; }
+    if (collabUsers.length) {
+      data.collabUids = collabUsers.map(c => c.uid);
+      data.collabNames = Object.fromEntries(collabUsers.map(c => [c.uid, c.displayName || c.handle]));
+      data.collabStatus = Object.fromEntries(collabUsers.map(c => [c.uid, "pending"]));
+    }
     if (options) data.poll = { options };
     await setDoc(ref, data);
     notifyMentions(text, ref.id);
-    if (collabUser) notify(collabUser.uid, "collab", text, ref.id);
+    collabUsers.forEach(c => notify(c.uid, "collab", text, ref.id));
     resetComposer();
     if (feedMode === "all" || feedMode === "following") {
       const empty = feedEl.querySelector(".feed-msg");
