@@ -43,10 +43,12 @@ The apps aren't code-signed yet, so your computer may show a warning the first t
 - **Reposts** to share someone's post with your followers, and **Saved posts** (🔖) with their own tab.
 - **Post links:** every post has a 🔗 link that opens it on its own. Click the time on a post to open it.
 - **Pinned post:** pin one of your posts (📌) to the top of your profile.
-- **Collab posts:** invite another user to co-author a post with 🤝 Collab. It appears on both profiles once they accept, and they can leave later.
+- **Collab posts:** invite up to 3 other users (4 people in total) to co-author a post with 🤝 Collab. It appears on each person's profile once they accept, and they can leave later.
 - **Trending hashtags** in the sidebar, and **post search** (type in the search box and press Enter).
 
 ### Accounts and safety
+- **Account switcher:** stay signed in to several accounts on one device and switch between them with 👥 Switch account (sidebar or Settings), no password needed. Use "Sign out of all accounts" on shared computers.
+- **Profile links:** share any profile with the 🔗 button in its profile window (on your own profile it says Share my profile). Opening the link shows that profile.
 - **Profile photo upload** instead of pasting a link.
 - **Delete my account** (Edit Profile → bottom of the form).
 - **Terms, Privacy Policy and Community Rules** (footer, and agreed to when registering).
@@ -65,7 +67,10 @@ The apps aren't code-signed yet, so your computer may show a warning the first t
 - **Blocking:** block someone from their profile. You won't see their posts, comments or messages, and they can't message or notify you. Unblock any time from the same place.
 
 ### Look and feel
-- **Dark mode:** toggle with 🌙 / ☀️ in the top bar. Your choice is remembered.
+- **Settings tab** on your own profile: dark mode, custom colors (page, top bar, titles, post text, messages, buttons), your blocked accounts with Unblock, and Sign out. Your choices sync to your account.
+- **Post menu (⋯):** copy link, edit, pin, report or delete from one dropdown.
+- **Followers and Following lists** can be opened from any profile.
+- **Search** is now the magnifier in the top bar.
 - **Toasts:** small messages like "Posted!" replace pop-up alerts.
 - **Initial avatars:** users without a profile picture, or with a broken image link, get a colored circle with their initial.
 - **Esc closes panels,** and clicking the dark background closes profile and sign-in windows.
@@ -77,7 +82,7 @@ The apps aren't code-signed yet, so your computer may show a warning the first t
 - Post, comment, DM, name and notification text is now escaped, so pasted HTML or scripts can't run in other people's browsers.
 
 ## Known issues
-- Google sign-in may not work inside the desktop apps. Email and password sign-in works everywhere.
+- Google sign-in may not work inside the desktop and Android apps. Email and password sign-in works everywhere.
 - Notifications only arrive while Qlix is open or in the background. Push alerts when it's fully closed aren't supported yet.
 - Images are stored inside posts, so very large or many images make the feed slower. Poll votes can't be changed.
 - Blocking is one-way: a blocked person isn't told, and can still see your public posts.
