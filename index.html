@@ -344,7 +344,7 @@ body.dark .auto-link{ color:#8ab4ff; }
 .send-row .grow{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .groups-title{ color:var(--c-title,#fff); font-size:14px; }
 .group-empty{ font-size:12px; color:#fff; opacity:.85; }
-.is-group .repost-btn, .is-group .send-dm-btn, .is-group .bm-btn, .is-group .copy-link-item, .is-group .send-dm-item, .is-group .report-btn, .is-group .pin-btn{ display:none !important; }
+.is-group .send-dm-btn, .is-group .bm-btn, .is-group .copy-link-item, .is-group .send-dm-item, .is-group .report-btn, .is-group .pin-btn{ display:none !important; }
 .is-group .post-link{ pointer-events:none; }
 .g-row{ display:flex; align-items:center; gap:10px; padding:8px 4px; font-size:13px; border-radius:10px; }
 .g-row.click{ cursor:pointer; } .g-row.click:hover{ background:rgba(0,0,0,.06); } body.dark .g-row.click:hover{ background:rgba(255,255,255,.08); }
@@ -978,7 +978,7 @@ function createPostCard(post) {
     ${rp ? `<div class="repost-meta">🔁 ${post.text ? "Quote repost" : "Reposted"}</div>` : ""}
     ${collabBanner}
     <div class="post-content">${renderMentions(post.text)}</div>
-    ${rp ? `<div class="repost-box" data-pid="${esc(rp.id || "")}" style="cursor:pointer;"><strong>${esc(rp.authorName)}</strong><div>${renderMentions(rp.text)}</div></div>` : ""}
+    ${rp ? `<div class="repost-box" data-pid="${esc(rp.id || "")}" style="${post.groupId ? "" : "cursor:pointer;"}"><strong>${esc(rp.authorName)}</strong><div>${renderMentions(rp.text)}</div></div>` : ""}
     ${img ? `<img class="post-img" src="${img}" alt="Image attached to post">` : ""}
     ${post.poll ? `<div class="poll"></div>` : ""}
     <div class="post-actions">
@@ -1008,7 +1008,7 @@ function createPostCard(post) {
   card.querySelector(".repost-box")?.addEventListener("click", e => {
     if (e.target.closest("a, .mention-link, .tag-link")) return;
     const id = e.currentTarget.dataset.pid;
-    if (id) location.hash = "#post-" + id;
+    if (id && !post.groupId) location.hash = "#post-" + id;
   });
   if (blockedIds.has(post.authorId)) card.style.display = "none";
   if (post.poll) renderPoll(card.querySelector(".poll"), post);
@@ -1108,7 +1108,8 @@ function createPostCard(post) {
     if (!currentUser) return needLogin();
     const orig = repostSource();
     if (orig.authorId === currentUser.uid) return toast("You can't repost your own post.");
-    openRepostDialog(orig);
+    if (post.groupId && !(groupCtx && groupCtx.id === post.groupId && groupCtx.role)) return toast("Join the group to repost.");
+    openRepostDialog(orig, post.groupId || null);
   };
   const sendInDm = () => { if (!currentUser) return needLogin(); openShareDialog(post); };
   card.querySelector(".send-dm-btn").onclick = sendInDm;
@@ -2825,7 +2826,7 @@ async function deleteGroup() {
 }
 
 // ================= Quote reposts, sharing to DMs, links =================
-function openRepostDialog(orig) {
+function openRepostDialog(orig, groupId = null) {
   const ta = document.getElementById("repostText"), btn = document.getElementById("repostGo");
   document.getElementById("repostPreview").innerHTML = `<strong>${esc(orig.authorName)}</strong><div>${renderMentions(orig.text)}</div>`;
   ta.value = ""; btn.textContent = "Repost"; btn.disabled = false;
@@ -2837,7 +2838,7 @@ function openRepostDialog(orig) {
   ta.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); btn.click(); } };
   btn.onclick = async () => {
     btn.disabled = true;
-    await doRepost(orig, ta.value.trim().slice(0, 500));
+    await doRepost(orig, ta.value.trim().slice(0, 500), groupId);
     closeOverlay(document.getElementById("repostModal"));
   };
   document.getElementById("repostModal").classList.add("open");
@@ -2845,11 +2846,11 @@ function openRepostDialog(orig) {
 }
 attachMentionSuggest(document.getElementById("repostText"));
 
-async function doRepost(orig, comment) {
+async function doRepost(orig, comment, groupId = null) {
   try {
     const u = (await getDoc(doc(db, "users", currentUser.uid))).data() || {};
-    const ref = doc(collection(db, "posts"));
-    newestId = ref.id;
+    const ref = doc(collection(db, groupId ? "gposts" : "posts"));
+    if (!groupId) newestId = ref.id;
     const data = {
       authorId: currentUser.uid,
       authorName: u.displayName || currentUser.displayName || currentUser.email,
@@ -2857,11 +2858,16 @@ async function doRepost(orig, comment) {
       text: comment, tags: extractTags(comment), timestamp: serverTimestamp(),
       repost: { id: orig.id, authorId: orig.authorId, authorName: orig.authorName, text: orig.text }
     };
+    if (groupId) data.groupId = groupId;
     await setDoc(ref, data);
     if (comment) notifyMentions(comment, ref.id);
-    notify(orig.authorId, "repost", comment || orig.text, orig.id);
+    notify(orig.authorId, "repost", comment || orig.text, groupId ? null : orig.id);
     toast(comment ? "Quote posted!" : "Reposted!");
-    if (feedMode === "all" || feedMode === "following") feedEl.prepend(createPostCard({ id: ref.id, ...data, timestamp: new Date() }));
+    if (groupId) {
+      if (groupCtx && groupCtx.id === groupId) setGroupTab("posts");
+    } else if (feedMode === "all" || feedMode === "following") {
+      feedEl.prepend(createPostCard({ id: ref.id, ...data, timestamp: new Date() }));
+    }
   } catch (e) { toast("Couldn't repost."); }
 }
 
