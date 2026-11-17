@@ -1024,7 +1024,7 @@ function createPostCard(post) {
         await updateDoc(doc(db, (post.groupId ? "gposts" : "posts"), post.id), { collabStatus: status });
         post.collabStatus = status;
       }
-      if (status === "accepted") notify(post.authorId, "collab_ok", post.text, post.id);
+      if (status === "accepted") notify(post.authorId, post.groupId ? "group_collab_ok" : "collab_ok", post.text, post.groupId || post.id);
       toast(status === "accepted" ? "You're now a collaborator on this post" : "Done");
       card.replaceWith(createPostCard(post));
     } catch (e) { toast("Couldn't update: " + e.message); }
@@ -1591,7 +1591,7 @@ function openNotificationsDrawer() {
       item.className = `notif-item ${n.type === 'dm' ? 'notif-dm' : ''}`;
       
       const who = esc(n.senderName);
-      const titles = { mention: `${who} mentioned you`, like: `❤️ ${who} liked your post`, reply: `💬 ${who} replied to your post`, follow: `👤 ${who} followed you`, repost: `🔁 ${who} reposted your post`, collab: `🤝 ${who} invited you to collab on a post`, collab_ok: `✅ ${who} accepted your collab`, group_request: `👤 ${who} asked to join ${esc(n.snippet)}`, group_add: `📣 ${who} added you to ${esc(n.snippet)}`, group_ok: `✅ You were approved to join ${esc(n.snippet)}` };
+      const titles = { mention: `${who} mentioned you`, like: `❤️ ${who} liked your post`, reply: `💬 ${who} replied to your post`, follow: `👤 ${who} followed you`, repost: `🔁 ${who} reposted your post`, collab: `🤝 ${who} invited you to collab on a post`, collab_ok: `✅ ${who} accepted your collab`, group_request: `👤 ${who} asked to join ${esc(n.snippet)}`, group_add: `📣 ${who} added you to ${esc(n.snippet)}`, group_ok: `✅ You were approved to join ${esc(n.snippet)}`, group_collab: `🤝 ${who} invited you to collab on a group post`, group_collab_ok: `✅ ${who} accepted your group collab` };
       let titleText = titles[n.type] || `${who} mentioned you`;
       if (n.type === "dm") titleText = `💬 New DM from ${esc(n.senderName)}`;
 
@@ -2672,7 +2672,7 @@ async function renderGroupPosts(pane) {
   if (!c.canSee) { pane.innerHTML = "<p style='font-size:13px;'>🔒 This group is private. Request to join to see its posts.</p>"; return; }
   if (c.role) {
     const box = document.createElement("div");
-    box.innerHTML = `<textarea id="gPostText" maxlength="500" placeholder="Write something to the group…"></textarea><div style="display:flex; justify-content:flex-end;"><button class="btn primary" id="gPostBtn" style="background:#547538; color:#fff;">Post</button></div>`;
+    box.innerHTML = `<textarea id="gPostText" maxlength="500" placeholder="Write something to the group…"></textarea><div id="gCollabBox" style="display:none; margin-bottom:8px;"><input type="text" id="gCollabInput" maxlength="120" placeholder="Collaborators (group members, up to 3): @alex @sam @jo" aria-label="Collaborator handles" autocomplete="off"></div><div style="display:flex; justify-content:space-between; gap:8px;"><button type="button" class="btn btn-sm" id="gCollabBtn" aria-label="Add a collaborator">🤝 Collab</button><button class="btn primary" id="gPostBtn" style="background:#547538; color:#fff;">Post</button></div>`;
     pane.appendChild(box);
   }
   const feed = document.createElement("div");
@@ -2689,16 +2689,43 @@ async function renderGroupPosts(pane) {
   };
   if (c.role) {
     const ta = pane.querySelector("#gPostText"), btn = pane.querySelector("#gPostBtn");
+    const cBox = pane.querySelector("#gCollabBox"), cInput = pane.querySelector("#gCollabInput"), cBtn = pane.querySelector("#gCollabBtn");
+    let gCollabOpen = false;
+    cBtn.onclick = () => { gCollabOpen = !gCollabOpen; cBox.style.display = gCollabOpen ? "block" : "none"; if (gCollabOpen) cInput.focus(); };
+    attachMentionSuggest(cInput);
     const send = async () => {
       const text = ta.value.trim().slice(0, 500);
       if (!text || btn.disabled) return;
       btn.disabled = true;
       try {
+        let collabUsers = [];
+        if (gCollabOpen) {
+          const handles = [...new Set(cInput.value.split(/[\s,]+/).map(h => h.replace(/^@/, "").toLowerCase()).filter(Boolean))];
+          if (!handles.length) throw new Error("type your collaborators' @handles, or close the Collab box.");
+          if (handles.length > 3) throw new Error("you can add up to 3 collaborators (4 people in total).");
+          for (const h of handles) {
+            const cq = await getDocs(query(collection(db, "users"), where("handle", "==", h), limit(1)));
+            if (cq.empty) throw new Error(`@${h} wasn't found.`);
+            const cu = { uid: cq.docs[0].id, ...cq.docs[0].data() };
+            if (cu.uid === currentUser.uid) throw new Error("you can't collab with yourself.");
+            if (blockedIds.has(cu.uid)) throw new Error(`you've blocked @${h}.`);
+            const mem = await getDoc(doc(db, "groups", c.id, "members", cu.uid));
+            if (!mem.exists()) throw new Error(`@${h} isn't in this group yet.`);
+            collabUsers.push(cu);
+          }
+        }
         const u = (await getDoc(doc(db, "users", currentUser.uid))).data() || {};
         const ref = doc(collection(db, "gposts"));
         const data = { groupId: c.id, authorId: currentUser.uid, authorName: u.displayName || myName(), authorPic: u.photoURL || "", text, tags: extractTags(text), timestamp: serverTimestamp() };
+        if (collabUsers.length) {
+          data.collabUids = collabUsers.map(x => x.uid);
+          data.collabNames = Object.fromEntries(collabUsers.map(x => [x.uid, x.displayName || x.handle]));
+          data.collabStatus = Object.fromEntries(collabUsers.map(x => [x.uid, "pending"]));
+        }
         await setDoc(ref, data);
+        collabUsers.forEach(x => notify(x.uid, "group_collab", text, c.id));
         ta.value = "";
+        cInput.value = ""; gCollabOpen = false; cBox.style.display = "none";
         const empty = feed.querySelector(".feed-msg"); if (empty) empty.remove();
         feed.prepend(addCard({ id: ref.id, ...data, timestamp: new Date() }));
       } catch (e) { toast("Couldn't post: " + e.message); }
