@@ -342,6 +342,16 @@ body.dark .auto-link{ color:#8ab4ff; }
 .dm-bubble.sent .shared-card{ background:rgba(255,255,255,.2); border-left-color:#fff; }
 .send-row{ display:flex; align-items:center; gap:10px; padding:6px 4px; font-size:13px; }
 .send-row .grow{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.groups-title{ color:var(--c-title,#fff); font-size:14px; }
+.group-empty{ font-size:12px; color:#fff; opacity:.85; }
+.is-group .repost-btn, .is-group .send-dm-btn, .is-group .bm-btn, .is-group .copy-link-item, .is-group .send-dm-item, .is-group .report-btn, .is-group .pin-btn{ display:none !important; }
+.is-group .post-link{ pointer-events:none; }
+.g-row{ display:flex; align-items:center; gap:10px; padding:8px 4px; font-size:13px; border-radius:10px; }
+.g-row.click{ cursor:pointer; } .g-row.click:hover{ background:rgba(0,0,0,.06); } body.dark .g-row.click:hover{ background:rgba(255,255,255,.08); }
+.g-row .grow{ flex:1; min-width:0; } .g-row .grow strong, .g-row .grow div{ display:block; overflow:hidden; text-overflow:ellipsis; }
+.g-btns{ display:flex; gap:6px; flex-wrap:wrap; }
+#gPane textarea{ margin-bottom:8px; }
+select{ font-family:inherit; padding:6px; border-radius:8px; max-width:60%; }
 </style>
 </head>
 <body>
@@ -371,6 +381,12 @@ body.dark .auto-link{ color:#8ab4ff; }
         <div id="userHandle" class="user-handle-sub"></div>
       </div>
       <button class="btn primary btn-sm" id="viewMyProfileBtn">View My Profile</button>
+    </div>
+
+    <div class="card" id="groupsCard" style="display:none; flex-direction:column; gap:8px; margin-top:16px;">
+      <strong class="groups-title">Groups</strong>
+      <div id="myGroupsList"></div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;"><button class="btn btn-sm primary" id="createGroupBtn">+ Create</button><button class="btn btn-sm" id="browseGroupsBtn">Browse</button></div>
     </div>
 
     <div class="card trend-card" id="trendCard" style="display:none;"><strong>🔥 Trending</strong><div id="trendList"></div></div>
@@ -424,6 +440,28 @@ body.dark .auto-link{ color:#8ab4ff; }
   </section>
 </main>
 <footer class="site-footer"><a class="legal-link" data-legal="Terms">Terms</a> · <a class="legal-link" data-legal="Privacy">Privacy</a> · <a class="legal-link" data-legal="Rules">Community Rules</a></footer>
+
+<div class="modal-overlay" id="groupsModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
+  <div class="modal-body" style="text-align:left; padding-top:34px;">
+    <h3 style="margin:0;">Groups</h3>
+    <input type="text" id="groupSearch" placeholder="Search groups by name…" autocomplete="off" aria-label="Search groups">
+    <div id="groupResults"></div>
+    <h4 style="margin:14px 0 0;">Create a group</h4>
+    <input type="text" id="newGroupName" maxlength="60" placeholder="Group name">
+    <textarea id="newGroupDesc" maxlength="300" placeholder="What is this group about?"></textarea>
+    <label class="set-row"><span>Privacy</span><select id="newGroupPrivacy"><option value="public">🌐 Public: anyone can join and see posts</option><option value="private">🔒 Private: people request to join, only members see posts</option></select></label>
+    <button class="btn primary" id="createGroupGo" style="background:#547538; color:#fff; align-self:flex-start;">Create group</button>
+  </div></div></div>
+
+<div class="modal-overlay" id="groupModal"><div class="profile-modal wide-modal"><button class="close-modal" data-close aria-label="Close">✕</button>
+  <div class="modal-body" style="text-align:left; padding-top:34px;">
+    <h3 id="gName" style="margin:0;"></h3>
+    <div id="gMeta" class="user-handle-sub"></div>
+    <div id="gDesc" style="font-size:13px; white-space:pre-line;"></div>
+    <div id="gActions" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+    <div class="auth-tabs" id="gTabs"></div>
+    <div id="gPane"></div>
+  </div></div></div>
 
 <div class="modal-overlay" id="authModal">
   <div class="auth-modal">
@@ -859,7 +897,7 @@ function resizeImage(file, max, square, quality = 0.65) {
 function renderPoll(el, post) {
   const opts = post.poll.options || [];
   if (commentUnsubscribes.has("V" + post.id)) commentUnsubscribes.get("V" + post.id)();
-  commentUnsubscribes.set("V" + post.id, onSnapshot(collection(db, "posts", post.id, "votes"), snap => {
+  commentUnsubscribes.set("V" + post.id, onSnapshot(collection(db, (post.groupId ? "gposts" : "posts"), post.id, "votes"), snap => {
     const counts = opts.map(() => 0);
     let mine = null;
     snap.docs.forEach(d => {
@@ -877,7 +915,7 @@ function renderPoll(el, post) {
       row.disabled = mine !== null;
       row.onclick = async () => {
         if (!currentUser) return needLogin();
-        try { await setDoc(doc(db, "posts", post.id, "votes", currentUser.uid), { option: i, timestamp: serverTimestamp() }); }
+        try { await setDoc(doc(db, (post.groupId ? "gposts" : "posts"), post.id, "votes", currentUser.uid), { option: i, timestamp: serverTimestamp() }); }
         catch (e) { toast("Couldn't vote."); }
       };
       el.appendChild(row);
@@ -900,7 +938,7 @@ function collabList(post) {
 // Post Card Creation
 function createPostCard(post) {
   const card = document.createElement("div");
-  card.className = "post";
+  card.className = "post" + (post.groupId ? " is-group" : "");
   card.id = `post-${post.id}`;
   card.dataset.author = post.authorId;
   const isAuthor = currentUser && currentUser.uid === post.authorId;
@@ -933,7 +971,7 @@ function createPostCard(post) {
           <button class="btn btn-sm send-dm-item" role="menuitem">✉️ Send in a message</button>
           ${collabLeave}
           ${isAuthor ? `<button class="btn btn-sm edit-btn" role="menuitem">✏️ Edit</button><button class="btn btn-sm pin-btn" role="menuitem">📌 Pin to profile</button><button class="btn btn-sm btn-danger delete-btn" role="menuitem">🗑 Delete</button>`
-            : (currentUser ? `<button class="btn btn-sm report-btn" role="menuitem">🚩 Report</button>` : "")}
+            : (currentUser ? `<button class="btn btn-sm report-btn" role="menuitem">🚩 Report</button>` : "")}${(post.groupId && groupCtx && groupCtx.admin && !isAuthor) ? `<button class="btn btn-sm btn-danger admin-del" role="menuitem">🗑 Remove post</button>` : ""}
         </div>
       </div>
     </div>
@@ -979,10 +1017,10 @@ function createPostCard(post) {
     try {
       const me = currentUser.uid;
       if (Array.isArray(post.collabUids)) {
-        await updateDoc(doc(db, "posts", post.id), { ["collabStatus." + me]: status });
+        await updateDoc(doc(db, (post.groupId ? "gposts" : "posts"), post.id), { ["collabStatus." + me]: status });
         post.collabStatus = { ...(post.collabStatus || {}), [me]: status };
       } else {
-        await updateDoc(doc(db, "posts", post.id), { collabStatus: status });
+        await updateDoc(doc(db, (post.groupId ? "gposts" : "posts"), post.id), { collabStatus: status });
         post.collabStatus = status;
       }
       if (status === "accepted") notify(post.authorId, "collab_ok", post.text, post.id);
@@ -1001,7 +1039,7 @@ function createPostCard(post) {
   if (isAuthor) {
     card.querySelector(".delete-btn").onclick = async () => {
       if (!confirm("Delete this post?")) return;
-      await deleteDoc(doc(db, "posts", post.id));
+      await deleteDoc(doc(db, (post.groupId ? "gposts" : "posts"), post.id));
       document.querySelectorAll(`#post-${post.id}`).forEach(el => el.remove());
       toast("Post deleted");
     };
@@ -1014,7 +1052,7 @@ function createPostCard(post) {
       save.onclick = async () => {
         const t = ta.value.trim();
         if (!t && !post.image && !post.repost) return;
-        await updateDoc(doc(db, "posts", post.id), { text: t, edited: true, tags: extractTags(t) });
+        await updateDoc(doc(db, (post.groupId ? "gposts" : "posts"), post.id), { text: t, edited: true, tags: extractTags(t) });
         post.text = t;
         content.innerHTML = renderMentions(t);
         bindMentionLinks(content);
@@ -1039,7 +1077,7 @@ function createPostCard(post) {
   const reactBtn = card.querySelector(".react-btn");
   let myReaction = null;
   if (commentUnsubscribes.has("L" + post.id)) commentUnsubscribes.get("L" + post.id)();
-  commentUnsubscribes.set("L" + post.id, onSnapshot(collection(db, "posts", post.id, "likes"), snap => {
+  commentUnsubscribes.set("L" + post.id, onSnapshot(collection(db, (post.groupId ? "gposts" : "posts"), post.id, "likes"), snap => {
     const counts = {};
     myReaction = null;
     snap.docs.forEach(d => {
@@ -1053,7 +1091,7 @@ function createPostCard(post) {
   }, () => {}));
   async function react(em) {
     if (!currentUser) return needLogin();
-    const ref = doc(db, "posts", post.id, "likes", currentUser.uid);
+    const ref = doc(db, (post.groupId ? "gposts" : "posts"), post.id, "likes", currentUser.uid);
     if (myReaction === em) { await deleteDoc(ref); return; }
     const first = !myReaction;
     await setDoc(ref, { emoji: em, timestamp: serverTimestamp() });
@@ -1100,7 +1138,7 @@ function createPostCard(post) {
       try {
         const userSnap = await getDoc(doc(db, "users", currentUser.uid));
         const userData = userSnap.exists() ? userSnap.data() : {};
-        await addDoc(collection(db, "posts", post.id, "comments"), {
+        await addDoc(collection(db, (post.groupId ? "gposts" : "posts"), post.id, "comments"), {
           authorId: currentUser.uid,
           authorName: userData.displayName || currentUser.email,
           authorPic: userData.photoURL || currentUser.photoURL || "",
@@ -1117,7 +1155,7 @@ function createPostCard(post) {
 
   const commentsList = card.querySelector(`#comments-${post.id}`);
   if (commentUnsubscribes.has(post.id)) commentUnsubscribes.get(post.id)();
-  const unsub = onSnapshot(collection(db, "posts", post.id, "comments"), (snap) => {
+  const unsub = onSnapshot(collection(db, (post.groupId ? "gposts" : "posts"), post.id, "comments"), (snap) => {
     const comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     comments.sort((a,b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
     commentsList.innerHTML = "";
@@ -1139,7 +1177,7 @@ function createPostCard(post) {
       bindMentionLinks(cDiv);
       if (canDeleteComment) {
         cDiv.querySelector(".comment-delete-btn").onclick = async () => {
-          await deleteDoc(doc(db, "posts", post.id, "comments", c.id));
+          await deleteDoc(doc(db, (post.groupId ? "gposts" : "posts"), post.id, "comments", c.id));
         };
       }
       commentsList.appendChild(cDiv);
@@ -1551,7 +1589,7 @@ function openNotificationsDrawer() {
       item.className = `notif-item ${n.type === 'dm' ? 'notif-dm' : ''}`;
       
       const who = esc(n.senderName);
-      const titles = { mention: `${who} mentioned you`, like: `❤️ ${who} liked your post`, reply: `💬 ${who} replied to your post`, follow: `👤 ${who} followed you`, repost: `🔁 ${who} reposted your post`, collab: `🤝 ${who} invited you to collab on a post`, collab_ok: `✅ ${who} accepted your collab` };
+      const titles = { mention: `${who} mentioned you`, like: `❤️ ${who} liked your post`, reply: `💬 ${who} replied to your post`, follow: `👤 ${who} followed you`, repost: `🔁 ${who} reposted your post`, collab: `🤝 ${who} invited you to collab on a post`, collab_ok: `✅ ${who} accepted your collab`, group_request: `👤 ${who} asked to join ${esc(n.snippet)}`, group_add: `📣 ${who} added you to ${esc(n.snippet)}`, group_ok: `✅ You were approved to join ${esc(n.snippet)}` };
       let titleText = titles[n.type] || `${who} mentioned you`;
       if (n.type === "dm") titleText = `💬 New DM from ${esc(n.senderName)}`;
 
@@ -1564,6 +1602,9 @@ function openNotificationsDrawer() {
       item.onclick = () => {
         if (n.type === "dm") {
           openChat(n.senderId, n.senderName);
+        } else if (String(n.type).startsWith("group") && n.postId) {
+          document.getElementById("dmDrawer").classList.remove("open");
+          openGroup(n.postId);
         } else if (n.type === "follow") {
           openUserProfile(n.senderId);
         } else if ((n.type === "collab" || n.type === "collab_ok") && n.postId) {
@@ -1713,9 +1754,11 @@ onAuthStateChanged(auth, async (user) => {
     listenForNotifications();
     listenForBlocks();
     loadUserMeta(userData);
+    listenMyGroups();
   } else {
     blockedIds = new Set();
     resetUserMeta();
+    resetGroups();
     userInfo.style.display = "none";
     composer.style.display = "none";
     openAuthModalBtn.style.display = "inline-block";
@@ -2452,6 +2495,334 @@ document.getElementById("settingsBtn").onclick = () => {
   renderBlocked();
   document.getElementById("settingsModal").classList.add("open");
 };
+
+// ================= Groups =================
+let groupCtx = null, myGroupsUnsub = null;
+const gDocRef = id => doc(db, "groups", id);
+const myName = () => document.getElementById("userName").textContent || currentUser.displayName || currentUser.email;
+
+function listenMyGroups() {
+  if (myGroupsUnsub) myGroupsUnsub();
+  myGroupsUnsub = onSnapshot(collection(db, "users", currentUser.uid, "groups"), snap => {
+    document.getElementById("groupsCard").style.display = "flex";
+    const list = document.getElementById("myGroupsList");
+    list.innerHTML = "";
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    if (!items.length) list.innerHTML = "<div class='group-empty'>You're not in any groups yet.</div>";
+    items.slice(0, 6).forEach(g => {
+      const r = document.createElement("div");
+      r.className = "trend-item"; r.setAttribute("role", "button"); r.tabIndex = 0;
+      r.innerHTML = `<span>${esc(g.name || "Group")}</span>`;
+      r.onclick = () => openGroup(g.id);
+      list.appendChild(r);
+    });
+  }, () => {});
+}
+function resetGroups() {
+  if (myGroupsUnsub) myGroupsUnsub();
+  myGroupsUnsub = null; groupCtx = null;
+  document.getElementById("groupsCard").style.display = "none";
+}
+
+// Browse + create
+let groupSearchTimer;
+async function searchGroups(term) {
+  const out = document.getElementById("groupResults");
+  out.innerHTML = "<p style='font-size:13px;'>Loading…</p>";
+  try {
+    const base = collection(db, "groups"), t = term.toLowerCase();
+    const sn = await getDocs(t ? query(base, where("nameLower", ">=", t), where("nameLower", "<=", t + "\uf8ff"), orderBy("nameLower"), limit(20)) : query(base, orderBy("nameLower"), limit(20)));
+    out.innerHTML = sn.empty ? "<p style='font-size:13px; opacity:.7;'>No groups found.</p>" : "";
+    sn.docs.forEach(d => {
+      const g = d.data(), r = document.createElement("div");
+      r.className = "g-row click"; r.setAttribute("role", "button"); r.tabIndex = 0;
+      r.innerHTML = `<div class="grow"><strong>${g.privacy === "private" ? "🔒" : "🌐"} ${esc(g.name)}</strong><div class="user-handle-sub">${esc((g.description || "").slice(0, 90))}</div></div>`;
+      r.onclick = () => { closeOverlay(document.getElementById("groupsModal")); openGroup(d.id); };
+      out.appendChild(r);
+    });
+  } catch (e) { out.innerHTML = "<p style='font-size:13px;'>Couldn't load groups.</p>"; }
+}
+function openGroupsModal(focusCreate) {
+  document.getElementById("groupsModal").classList.add("open");
+  searchGroups(document.getElementById("groupSearch").value.trim());
+  if (focusCreate) document.getElementById("newGroupName").focus();
+}
+document.getElementById("browseGroupsBtn").onclick = () => openGroupsModal(false);
+document.getElementById("createGroupBtn").onclick = () => openGroupsModal(true);
+document.getElementById("groupSearch").addEventListener("input", e => {
+  clearTimeout(groupSearchTimer);
+  groupSearchTimer = setTimeout(() => searchGroups(e.target.value.trim()), 250);
+});
+document.getElementById("createGroupGo").onclick = async () => {
+  if (!currentUser) return needLogin();
+  const name = document.getElementById("newGroupName").value.trim();
+  const desc = document.getElementById("newGroupDesc").value.trim();
+  const privacy = document.getElementById("newGroupPrivacy").value;
+  if (!name) return toast("Give your group a name.");
+  try {
+    const ref = doc(collection(db, "groups"));
+    await setDoc(ref, { name, nameLower: name.toLowerCase(), description: desc, privacy, ownerId: currentUser.uid, ownerName: myName(), createdAt: serverTimestamp() });
+    await setDoc(doc(db, "groups", ref.id, "members", currentUser.uid), { role: "owner", name: myName(), joinedAt: serverTimestamp() });
+    await setDoc(doc(db, "users", currentUser.uid, "groups", ref.id), { name, joinedAt: serverTimestamp() });
+    document.getElementById("newGroupName").value = ""; document.getElementById("newGroupDesc").value = "";
+    closeOverlay(document.getElementById("groupsModal"));
+    toast("Group created!");
+    openGroup(ref.id);
+  } catch (e) { toast("Couldn't create the group: " + e.message); }
+};
+
+// Open one group
+async function openGroup(id, tab) {
+  const sn = await getDoc(gDocRef(id)).catch(() => null);
+  if (!sn || !sn.exists()) return toast("That group doesn't exist anymore.");
+  const g = { id, ...sn.data() };
+  let role = null, requested = false;
+  if (currentUser) {
+    const m = await getDoc(doc(db, "groups", id, "members", currentUser.uid)).catch(() => null);
+    role = m && m.exists() ? m.data().role : null;
+    if (!role && g.privacy === "private") {
+      const r = await getDoc(doc(db, "groups", id, "requests", currentUser.uid)).catch(() => null);
+      requested = !!(r && r.exists());
+    }
+  }
+  const canSee = g.privacy === "public" || !!role;
+  let count = null;
+  if (canSee) { try { count = (await getDocs(collection(db, "groups", id, "members"))).size; } catch (e) {} }
+  groupCtx = { id, g, role, requested, canSee, count, admin: role === "owner" || role === "admin", owner: role === "owner" };
+  renderGroupHead();
+  setGroupTab(tab || "posts");
+  document.getElementById("groupModal").classList.add("open");
+}
+function renderGroupHead() {
+  const c = groupCtx, g = c.g;
+  document.getElementById("gName").textContent = g.name;
+  document.getElementById("gMeta").textContent = (g.privacy === "private" ? "🔒 Private group" : "🌐 Public group")
+    + (c.count != null ? ` · ${c.count} member${c.count === 1 ? "" : "s"}` : "")
+    + (c.role ? ` · You're ${c.role === "owner" ? "the owner" : c.role === "admin" ? "an admin" : "a member"}` : "");
+  document.getElementById("gDesc").innerHTML = linkify(esc(g.description || ""));
+  const act = document.getElementById("gActions");
+  act.innerHTML = "";
+  const add = (label, fn, primary) => {
+    const b = document.createElement("button");
+    b.className = "btn btn-sm"; b.textContent = label; b.onclick = fn;
+    b.style.cssText = primary ? "background:#547538; color:#fff;" : "background:#eee; color:#222;";
+    act.appendChild(b);
+  };
+  if (!currentUser) add("Sign in to join", needLogin, true);
+  else if (!c.role) {
+    if (g.privacy === "public") add("Join group", joinGroup, true);
+    else if (c.requested) add("Cancel join request", cancelRequest);
+    else add("Request to join", requestJoin, true);
+  } else if (!c.owner) add("Leave group", leaveGroup);
+  const tabs = [["posts", "Posts"]];
+  if (c.canSee) tabs.push(["members", "Members"]);
+  if (c.admin && g.privacy === "private") tabs.push(["requests", "Requests"]);
+  if (c.admin) tabs.push(["settings", "Settings"]);
+  const tb = document.getElementById("gTabs");
+  tb.innerHTML = "";
+  tabs.forEach(([k, label]) => {
+    const b = document.createElement("button");
+    b.className = "auth-tab"; b.dataset.gtab = k; b.textContent = label; b.onclick = () => setGroupTab(k);
+    tb.appendChild(b);
+  });
+}
+function setGroupTab(tab) {
+  document.querySelectorAll("#gTabs [data-gtab]").forEach(b => b.classList.toggle("active", b.dataset.gtab === tab));
+  const pane = document.getElementById("gPane");
+  pane.innerHTML = "";
+  ({ posts: renderGroupPosts, members: renderGroupMembers, requests: renderGroupRequests, settings: renderGroupSettings }[tab] || renderGroupPosts)(pane);
+}
+
+// Joining and leaving
+async function addMember(gid, uid, name, role) {
+  await setDoc(doc(db, "groups", gid, "members", uid), { role, name, joinedAt: serverTimestamp() });
+  await setDoc(doc(db, "users", uid, "groups", gid), { name: groupCtx.g.name, joinedAt: serverTimestamp() });
+}
+async function removeMember(gid, uid) {
+  await deleteDoc(doc(db, "groups", gid, "members", uid));
+  await deleteDoc(doc(db, "users", uid, "groups", gid)).catch(() => {});
+}
+async function joinGroup() {
+  try { await addMember(groupCtx.id, currentUser.uid, myName(), "member"); toast("You joined the group!"); openGroup(groupCtx.id); }
+  catch (e) { toast("Couldn't join this group."); }
+}
+async function requestJoin() {
+  try {
+    await setDoc(doc(db, "groups", groupCtx.id, "requests", currentUser.uid), { name: myName(), timestamp: serverTimestamp() });
+    notify(groupCtx.g.ownerId, "group_request", groupCtx.g.name, groupCtx.id);
+    toast("Request sent"); openGroup(groupCtx.id);
+  } catch (e) { toast("Couldn't send the request."); }
+}
+async function cancelRequest() {
+  await deleteDoc(doc(db, "groups", groupCtx.id, "requests", currentUser.uid)).catch(() => {});
+  openGroup(groupCtx.id);
+}
+async function leaveGroup() {
+  if (!confirm("Leave this group?")) return;
+  try { await removeMember(groupCtx.id, currentUser.uid); toast("You left the group"); closeOverlay(document.getElementById("groupModal")); }
+  catch (e) { toast("Couldn't leave the group."); }
+}
+
+// Posts tab
+async function renderGroupPosts(pane) {
+  const c = groupCtx;
+  if (!c.canSee) { pane.innerHTML = "<p style='font-size:13px;'>🔒 This group is private. Request to join to see its posts.</p>"; return; }
+  if (c.role) {
+    const box = document.createElement("div");
+    box.innerHTML = `<textarea id="gPostText" maxlength="500" placeholder="Write something to the group…"></textarea><div style="display:flex; justify-content:flex-end;"><button class="btn primary" id="gPostBtn" style="background:#547538; color:#fff;">Post</button></div>`;
+    pane.appendChild(box);
+  }
+  const feed = document.createElement("div");
+  feed.className = "feed"; feed.style.marginTop = "10px";
+  feed.innerHTML = "<p style='font-size:13px;'>Loading posts…</p>";
+  pane.appendChild(feed);
+  const addCard = (p) => {
+    const card = createPostCard(p);
+    card.querySelector(".admin-del")?.addEventListener("click", async () => {
+      if (!confirm("Remove this post from the group?")) return;
+      try { await deleteDoc(doc(db, "gposts", p.id)); card.remove(); toast("Post removed"); } catch (e) { toast("Couldn't remove it."); }
+    });
+    return card;
+  };
+  if (c.role) {
+    const ta = pane.querySelector("#gPostText"), btn = pane.querySelector("#gPostBtn");
+    const send = async () => {
+      const text = ta.value.trim().slice(0, 500);
+      if (!text || btn.disabled) return;
+      btn.disabled = true;
+      try {
+        const u = (await getDoc(doc(db, "users", currentUser.uid))).data() || {};
+        const ref = doc(collection(db, "gposts"));
+        const data = { groupId: c.id, authorId: currentUser.uid, authorName: u.displayName || myName(), authorPic: u.photoURL || "", text, tags: extractTags(text), timestamp: serverTimestamp() };
+        await setDoc(ref, data);
+        ta.value = "";
+        const empty = feed.querySelector(".feed-msg"); if (empty) empty.remove();
+        feed.prepend(addCard({ id: ref.id, ...data, timestamp: new Date() }));
+      } catch (e) { toast("Couldn't post: " + e.message); }
+      btn.disabled = false;
+    };
+    btn.onclick = send;
+    ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+  }
+  try {
+    const sn = await getDocs(query(collection(db, "gposts"), where("groupId", "==", c.id), limit(200)));
+    const posts = sn.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+    await verifiedReady;
+    feed.innerHTML = posts.length ? "" : "<p class='feed-msg' style='color:inherit; opacity:.7; text-align:center;'>No posts yet. Start the conversation!</p>";
+    posts.forEach(p => feed.appendChild(addCard(p)));
+  } catch (e) { feed.innerHTML = "<p style='font-size:13px;'>Couldn't load posts.</p>"; }
+}
+
+// Members tab
+async function renderGroupMembers(pane) {
+  const c = groupCtx;
+  pane.innerHTML = "<p style='font-size:13px;'>Loading…</p>";
+  try {
+    const sn = await getDocs(collection(db, "groups", c.id, "members"));
+    const order = { owner: 0, admin: 1, member: 2 };
+    const members = sn.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (order[a.role] - order[b.role]) || (a.name || "").localeCompare(b.name || ""));
+    const users = await Promise.all(members.map(m => getDoc(doc(db, "users", m.id)).then(s => s.data() || {}).catch(() => ({}))));
+    pane.innerHTML = "";
+    if (c.admin) {
+      const f = document.createElement("div");
+      f.style.cssText = "display:flex; gap:6px; margin-bottom:8px;";
+      f.innerHTML = `<input type="text" id="gAddHandle" placeholder="Add someone by @handle" autocomplete="off"><button class="btn btn-sm" id="gAddBtn" style="background:#547538; color:#fff;">Add</button>`;
+      pane.appendChild(f);
+      f.querySelector("#gAddBtn").onclick = async () => {
+        const h = f.querySelector("#gAddHandle").value.trim().replace(/^@/, "").toLowerCase();
+        if (!h) return;
+        try {
+          const q = await getDocs(query(collection(db, "users"), where("handle", "==", h), limit(1)));
+          if (q.empty) return toast(`@${h} wasn't found.`);
+          const uid = q.docs[0].id, name = q.docs[0].data().displayName || h;
+          if (members.some(m => m.id === uid)) return toast("They're already in this group.");
+          await addMember(c.id, uid, name, "member");
+          notify(uid, "group_add", c.g.name, c.id);
+          toast(`${name} was added`); openGroup(c.id, "members");
+        } catch (e) { toast("Couldn't add them."); }
+      };
+    }
+    members.forEach((m, i) => {
+      const u = users[i], row = document.createElement("div");
+      row.className = "g-row";
+      row.innerHTML = `<img class="profile-pic" style="width:32px;height:32px" src="${esc(avatarSrc(u.photoURL, m.name))}" alt="${esc(m.name || "Member")}"><div class="grow"><strong>${esc(u.displayName || m.name || "Member")}${vbadge(m.id)}</strong><div class="user-handle-sub">${m.role === "owner" ? "Owner" : m.role === "admin" ? "Admin" : (u.handle ? "@" + esc(u.handle) : "Member")}</div></div>`;
+      row.querySelector("img").onclick = () => openUserProfile(m.id);
+      const btns = document.createElement("div");
+      btns.className = "g-btns";
+      const mk = (label, fn, danger) => { const b = document.createElement("button"); b.className = "btn btn-sm" + (danger ? " btn-danger" : ""); if (!danger) b.style.cssText = "background:#eee; color:#222;"; b.textContent = label; b.onclick = fn; btns.appendChild(b); };
+      if (m.id !== currentUser.uid && m.role !== "owner") {
+        if (c.owner) mk(m.role === "admin" ? "Remove admin" : "Make admin", async () => { try { await updateDoc(doc(db, "groups", c.id, "members", m.id), { role: m.role === "admin" ? "member" : "admin" }); renderGroupMembers(pane); } catch (e) { toast("Couldn't change the role."); } });
+        if (c.owner || (c.admin && m.role === "member")) mk("Remove", async () => { if (!confirm(`Remove ${m.name || "this member"} from the group?`)) return; try { await removeMember(c.id, m.id); openGroup(c.id, "members"); } catch (e) { toast("Couldn't remove them."); } }, true);
+      }
+      row.appendChild(btns);
+      pane.appendChild(row);
+    });
+  } catch (e) { pane.innerHTML = "<p style='font-size:13px;'>Couldn't load members.</p>"; }
+}
+
+// Join requests tab (private groups)
+async function renderGroupRequests(pane) {
+  const c = groupCtx;
+  pane.innerHTML = "<p style='font-size:13px;'>Loading…</p>";
+  try {
+    const sn = await getDocs(collection(db, "groups", c.id, "requests"));
+    pane.innerHTML = sn.empty ? "<p style='font-size:13px; opacity:.7;'>No pending requests.</p>" : "";
+    sn.docs.forEach(d => {
+      const r = d.data(), row = document.createElement("div");
+      row.className = "g-row";
+      row.innerHTML = `<div class="grow"><strong>${esc(r.name || "Someone")}</strong></div>`;
+      const ok = document.createElement("button"); ok.className = "btn btn-sm"; ok.style.cssText = "background:#547538; color:#fff;"; ok.textContent = "Approve";
+      const no = document.createElement("button"); no.className = "btn btn-sm"; no.style.cssText = "background:#eee; color:#222;"; no.textContent = "Decline";
+      ok.onclick = async () => { try { await addMember(c.id, d.id, r.name || "Member", "member"); await deleteDoc(d.ref); notify(d.id, "group_ok", c.g.name, c.id); toast("Approved"); openGroup(c.id, "requests"); } catch (e) { toast("Couldn't approve."); } };
+      no.onclick = async () => { try { await deleteDoc(d.ref); row.remove(); } catch (e) { toast("Couldn't decline."); } };
+      const btns = document.createElement("div"); btns.className = "g-btns"; btns.append(ok, no);
+      row.appendChild(btns); pane.appendChild(row);
+    });
+  } catch (e) { pane.innerHTML = "<p style='font-size:13px;'>Couldn't load requests.</p>"; }
+}
+
+// Settings tab (admins)
+function renderGroupSettings(pane) {
+  const c = groupCtx, g = c.g;
+  pane.innerHTML = `<input type="text" id="gsName" maxlength="60" placeholder="Group name"><textarea id="gsDesc" maxlength="300" placeholder="Description"></textarea>
+    <label class="set-row"><span>Privacy</span><select id="gsPrivacy"><option value="public">🌐 Public</option><option value="private">🔒 Private</option></select></label>
+    <div class="g-btns"><button class="btn btn-sm" id="gsSave" style="background:#547538; color:#fff;">Save changes</button></div>`;
+  pane.querySelector("#gsName").value = g.name || "";
+  pane.querySelector("#gsDesc").value = g.description || "";
+  pane.querySelector("#gsPrivacy").value = g.privacy;
+  pane.querySelector("#gsSave").onclick = async () => {
+    const name = pane.querySelector("#gsName").value.trim();
+    if (!name) return toast("The group needs a name.");
+    try {
+      await updateDoc(gDocRef(c.id), { name, nameLower: name.toLowerCase(), description: pane.querySelector("#gsDesc").value.trim(), privacy: pane.querySelector("#gsPrivacy").value });
+      toast("Saved"); openGroup(c.id, "settings");
+    } catch (e) { toast("Couldn't save: " + e.message); }
+  };
+  if (c.owner) {
+    const del = document.createElement("button");
+    del.className = "btn btn-sm btn-danger"; del.style.marginTop = "14px"; del.textContent = "Delete this group";
+    del.onclick = deleteGroup;
+    pane.appendChild(del);
+  }
+}
+async function deleteGroup() {
+  const c = groupCtx;
+  if (!confirm(`Delete "${c.g.name}" and all its posts? This can't be undone.`)) return;
+  if (prompt("Type DELETE to confirm") !== "DELETE") return;
+  try {
+    const posts = await getDocs(query(collection(db, "gposts"), where("groupId", "==", c.id)));
+    await Promise.all(posts.docs.map(d => deleteDoc(d.ref)));
+    const reqs = await getDocs(collection(db, "groups", c.id, "requests"));
+    await Promise.all(reqs.docs.map(d => deleteDoc(d.ref)));
+    const mem = await getDocs(collection(db, "groups", c.id, "members"));
+    for (const m of mem.docs) { if (m.id !== currentUser.uid) await removeMember(c.id, m.id).catch(() => {}); }
+    await deleteDoc(gDocRef(c.id));
+    await deleteDoc(doc(db, "groups", c.id, "members", currentUser.uid)).catch(() => {});
+    await deleteDoc(doc(db, "users", currentUser.uid, "groups", c.id)).catch(() => {});
+    closeOverlay(document.getElementById("groupModal"));
+    toast("Group deleted");
+  } catch (e) { toast("Couldn't delete the group: " + e.message); }
+}
 
 // ================= Quote reposts, sharing to DMs, links =================
 function openRepostDialog(orig) {
