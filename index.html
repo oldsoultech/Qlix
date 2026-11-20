@@ -130,6 +130,9 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .dm-bubble.received { align-self: flex-start; background: #e0e0e0; color: black; }
 .dm-time { font-size: 9px; opacity: 0.7; align-self: flex-end; margin-top: 2px; }
 
+/* Keep line breaks the author typed (posts, quoted/reposted text, comments, shared cards) */
+.post-content, .repost-box > div, #repostPreview > div, .shared-card > div, .comment-text { white-space: pre-line; }
+
 /* DM tabs (Chats list + open chat) */
 #dmTabs { display: none; gap: 4px; padding: 6px 10px 0; background: #444; align-items: flex-end; }
 .dm-tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; border: none; border-radius: 8px 8px 0 0; background: #555; color: #ddd; cursor: pointer; max-width: 170px; }
@@ -723,10 +726,9 @@ const googleProvider = new GoogleAuthProvider();
 // ================================================================
 const APP_INFO = {
   name: "Qlix 2",
-  version: "1.4",
+  version: "1.4.1",
   notes: [
-    "DM glitch where chats would overlay each other is patched.",
-    "Added an About page in Settings"
+    "Line breaks in posts now show up when posted instead of becoming one block"
   ]
 };
 
@@ -1218,7 +1220,7 @@ function createPostCard(post) {
         <img src="${esc(avatarSrc(c.authorPic, c.authorName))}" alt="${esc(c.authorName)}" class="profile-pic" style="width:24px; height:24px;">
         <div class="comment-content">
           <div><span class="comment-author">${esc(c.authorName)}</span>${vbadge(c.authorId)} <span class="post-timestamp">${formatDate(c.timestamp)}</span></div>
-          <div style="padding-right: 40px;">${renderMentions(c.text)}</div>
+          <div class="comment-text" style="padding-right: 40px;">${renderMentions(c.text)}</div>
         </div>
         ${canDeleteComment ? `<button class="btn btn-sm btn-danger comment-delete-btn" aria-label="Delete comment">✕</button>` : ''}
       `;
