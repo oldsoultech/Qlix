@@ -130,6 +130,19 @@ textarea{ min-height:70px; margin-bottom:8px; }
 .dm-bubble.received { align-self: flex-start; background: #e0e0e0; color: black; }
 .dm-time { font-size: 9px; opacity: 0.7; align-self: flex-end; margin-top: 2px; }
 
+/* DM tabs (Chats list + open chat) */
+#dmTabs { display: none; gap: 4px; padding: 6px 10px 0; background: #444; align-items: flex-end; }
+.dm-tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; border: none; border-radius: 8px 8px 0 0; background: #555; color: #ddd; cursor: pointer; max-width: 170px; }
+.dm-tab:hover { background: #666; }
+.dm-tab.active { background: #f5f5f5; color: #222; cursor: default; font-weight: bold; }
+.dm-tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-tab-x { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 12px; padding: 0 2px; border-radius: 4px; line-height: 1; }
+.dm-tab-x:hover { background: rgba(0,0,0,.15); }
+body.dark #dmTabs { background: #111; }
+body.dark .dm-tab { background: #2a2a2a; color: #bbb; }
+body.dark .dm-tab:hover { background: #333; }
+body.dark .dm-tab.active { background: #161616; color: #eee; }
+
 /* DM List & Notification Items */
 .notif-item, .dm-list-item {
   background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd;
@@ -599,6 +612,10 @@ select{ font-family:inherit; padding:6px; border-radius:8px; max-width:60%; }
       <button class="btn btn-sm" id="closeDmBtn" style="background:#555; color:white;">✕ Close</button>
     </div>
   </div>
+  <div id="dmTabs">
+    <button class="dm-tab" id="dmTabList" type="button">💬 Chats</button>
+    <span class="dm-tab active" id="dmTabChat"><span class="dm-tab-name" id="dmTabChatName"></span><button class="dm-tab-x" id="dmTabChatClose" type="button" aria-label="Close chat" title="Close chat">✕</button></span>
+  </div>
   <div class="dm-body" id="dmBody"></div>
   <div id="typingIndicator">typing…</div>
   <div class="dm-footer" id="dmFooter" style="display:none;">
@@ -699,6 +716,8 @@ let currentUser = null;
 let activeChatUserId = null;
 let dmUnsubscribe = null;
 let notifUnsubscribe = null;
+let dmListUnsub = null;
+let dmListToken = 0;
 let welcomeInterval = null;
 const commentUnsubscribes = new Map();
 
@@ -1480,22 +1499,42 @@ const chatVisible = () =>
   document.getElementById("dmDrawer").classList.contains("open") &&
   document.getElementById("dmFooter").style.display === "flex";
 
+// Stop every live listener that paints into the drawer body, so one view
+// can never be overwritten by another (this was the "chats list pops up
+// after sending a message" bug).
+function stopDrawerListeners() {
+  dmListToken++;
+  if (dmListUnsub) { dmListUnsub(); dmListUnsub = null; }
+  if (notifUnsubscribe) { notifUnsubscribe(); notifUnsubscribe = null; }
+  if (dmUnsubscribe) { dmUnsubscribe(); dmUnsubscribe = null; }
+  if (typingUnsub) { typingUnsub(); typingUnsub = null; }
+  clearTimeout(typingHideTimer);
+  clearMyTyping();
+  activeChatUserId = null;
+  setTyping(false);
+  document.getElementById("dmTabs").style.display = "none";
+}
+function closeDrawer() {
+  stopDrawerListeners();
+  document.getElementById("dmDrawer").classList.remove("open");
+}
+
 // Chat Conversation Window
 function openChat(targetUserId, targetUserName) {
   if (!currentUser) return;
+  stopDrawerListeners();
   activeChatUserId = targetUserId;
   markDmRead(targetUserId);
 
-  document.getElementById("dmTargetName").textContent = `💬 ${targetUserName}`;
+  document.getElementById("dmTargetName").textContent = "💬 Direct Messages";
+  document.getElementById("dmTabChatName").textContent = targetUserName;
+  document.getElementById("dmTabs").style.display = "flex";
   document.getElementById("clearNotifsBtn").style.display = "none";
   document.getElementById("dmFooter").style.display = "flex";
   const dmBody = document.getElementById("dmBody");
   dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>Loading messages...</p>";
   document.getElementById("dmDrawer").classList.add("open");
 
-  if (dmUnsubscribe) dmUnsubscribe();
-  if (typingUnsub) typingUnsub();
-  setTyping(false);
   typingUnsub = onSnapshot(doc(db, "typing", `${targetUserId}_${currentUser.uid}`), snap => {
     clearTimeout(typingHideTimer);
     setTyping(snap.exists());
@@ -1566,6 +1605,7 @@ document.getElementById("sendDmBtn").onclick = async () => {
 // Open Notifications Drawer
 function openNotificationsDrawer() {
   if (!currentUser) return;
+  stopDrawerListeners();
 
   document.getElementById("dmTargetName").textContent = "🔔 Notifications";
   document.getElementById("clearNotifsBtn").style.display = "inline-block";
@@ -1583,8 +1623,6 @@ function openNotificationsDrawer() {
       }
     });
   });
-
-  if (notifUnsubscribe) notifUnsubscribe();
 
   notifUnsubscribe = onSnapshot(q, (snapshot) => {
     const notifs = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).filter(n => !blockedIds.has(n.senderId));
@@ -1646,6 +1684,8 @@ document.getElementById("clearNotifsBtn").onclick = async () => {
 // Open Direct Messages Drawer
 function openDmsDrawer() {
   if (!currentUser) return;
+  stopDrawerListeners();
+  const myToken = dmListToken;
 
   document.getElementById("dmTargetName").textContent = "💬 Direct Messages";
   document.getElementById("clearNotifsBtn").style.display = "none";
@@ -1656,7 +1696,8 @@ function openDmsDrawer() {
 
   const q = query(collection(db, "direct_messages"), where("participants", "array-contains", currentUser.uid));
 
-  onSnapshot(q, async (snapshot) => {
+  dmListUnsub = onSnapshot(q, async (snapshot) => {
+    if (myToken !== dmListToken) return;
     const chatsMap = new Map();
 
     for (const d of snapshot.docs) {
@@ -1673,16 +1714,21 @@ function openDmsDrawer() {
     const conversations = Array.from(chatsMap.values());
     conversations.sort((a,b) => b.timestamp - a.timestamp);
 
+    // fetch names first, then paint only if this list is still the active view
+    const names = await Promise.all(conversations.map(async c => {
+      const snap = await getDoc(doc(db, "users", c.otherId));
+      return (snap.exists() && snap.data().displayName) || "User";
+    }));
+    if (myToken !== dmListToken) return;
+
     dmBody.innerHTML = "";
     if (conversations.length === 0) {
       dmBody.innerHTML = "<p style='font-size:12px; color:#666;'>No direct messages yet.</p>";
       return;
     }
 
-    for (const conv of conversations) {
-      const otherSnap = await getDoc(doc(db, "users", conv.otherId));
-      const otherData = otherSnap.exists() ? otherSnap.data() : {};
-      const otherName = otherData.displayName || "User";
+    conversations.forEach((conv, i) => {
+      const otherName = names[i];
 
       const item = document.createElement("div");
       item.className = "dm-list-item";
@@ -1694,9 +1740,13 @@ function openDmsDrawer() {
 
       item.onclick = () => openChat(conv.otherId, otherName);
       dmBody.appendChild(item);
-    }
+    });
   });
 }
+
+// Tab controls: "Chats" tab / closing the chat tab both go back to the list
+document.getElementById("dmTabList").onclick = openDmsDrawer;
+document.getElementById("dmTabChatClose").onclick = openDmsDrawer;
 
 // Notifications Badge Listener
 let badgeUnsub = null;
@@ -1950,7 +2000,7 @@ postBtnEl.onclick = async () => {
 // UI Buttons Event Listeners
 document.getElementById("notifTabBtn").onclick = openNotificationsDrawer;
 document.getElementById("dmTabBtn").onclick = openDmsDrawer;
-document.getElementById("closeDmBtn").onclick = () => document.getElementById("dmDrawer").classList.remove("open");
+document.getElementById("closeDmBtn").onclick = closeDrawer;
 
 document.getElementById("viewMyProfileBtn").onclick = () => {
   if (currentUser) openUserProfile(currentUser.uid);
@@ -2135,7 +2185,7 @@ document.getElementById("dmInput").addEventListener("keydown", e => {
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   ["profileModal", "authModal"].forEach(id => document.getElementById(id).classList.remove("open"));
-  document.getElementById("dmDrawer").classList.remove("open");
+  closeDrawer();
 });
 ["profileModal", "authModal"].forEach(id => {
   const el = document.getElementById(id);
