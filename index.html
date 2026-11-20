@@ -650,6 +650,11 @@ select{ font-family:inherit; padding:6px; border-radius:8px; max-width:60%; }
       <h4>Account</h4>
       <button class="btn btn-danger" id="signOutBtn" style="align-self:flex-start;">Sign Out</button>
     </div>
+    <div class="set-sec">
+      <h4>About</h4>
+      <div class="set-row"><span id="aboutName">Qlix</span><strong id="aboutVersion"></strong></div>
+      <div id="aboutNotes" style="font-size:13px; opacity:.8;"></div>
+    </div>
   </div></div></div>
 
 <!-- Followers / Following list -->
@@ -711,6 +716,19 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
+
+// ================================================================
+//  APP INFO  -  to release a new version, edit ONLY this block.
+//  Settings > About reads everything from here.
+// ================================================================
+const APP_INFO = {
+  name: "Qlix 2",
+  version: "1.4",
+  notes: [
+    "DMs now open as their own tab - close it to get back to your chats",
+    "Added an About page in Settings"
+  ]
+};
 
 let currentUser = null;
 let activeChatUserId = null;
@@ -2609,10 +2627,19 @@ async function renderBlocked() {
     box.appendChild(row);
   });
 }
+function renderAbout() {
+  document.getElementById("aboutName").textContent = APP_INFO.name;
+  document.getElementById("aboutVersion").textContent = "v" + APP_INFO.version;
+  const notes = document.getElementById("aboutNotes");
+  notes.innerHTML = APP_INFO.notes && APP_INFO.notes.length
+    ? `<div style="font-weight:bold; margin-bottom:4px;">What's new in v${esc(APP_INFO.version)}</div><ul style="margin:0; padding-left:18px;">${APP_INFO.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>`
+    : "";
+}
 document.getElementById("settingsBtn").onclick = () => {
   if (!currentUser) return;
   renderColors();
   renderBlocked();
+  renderAbout();
   document.getElementById("settingsModal").classList.add("open");
 };
 
