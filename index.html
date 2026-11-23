@@ -538,6 +538,36 @@ body.dark .shared-card{ background:rgba(255,255,255,.1); }
 body.dark .notif-item:hover, body.dark .dm-list-item:hover{ background:#333; }
 /* modals and drawers on dark: buttons with inline light backgrounds keep dark text */
 body.dark .profile-modal .btn[style*="background: #eee"], body.dark .profile-modal .btn[style*="background:#eee"]{ background:#3a3a3a !important; color:#eee; }
+
+/* ---- Round 2 readability fixes ---- */
+/* profile modal buttons that have an inline light background (Edit Profile / Settings / Copy link / Block):
+   the inline value gets rewritten by script, so target them by role instead */
+.profile-modal .btn-sm:not(.primary):not(.btn-danger):not(.btn-follow){ background:#eee; color:#222; }
+body.dark .profile-modal .btn-sm:not(.primary):not(.btn-danger):not(.btn-follow){ background:#3a3a3a !important; color:#f0f0f0 !important; }
+html[data-theme="vapor"] body.dark .profile-modal .btn-sm:not(.primary):not(.btn-danger):not(.btn-follow){ background:#4a1f7a !important; }
+html[data-theme="metro"] body.dark .profile-modal .btn-sm:not(.primary):not(.btn-danger):not(.btn-follow){ background:#3a3a3a !important; }
+/* inline grey handle / secondary text inside dark modals */
+body.dark #modalProfileHandle, body.dark .profile-modal [style*="color:#666"], body.dark .profile-modal [style*="color: #666"]{ color:#b5b5b5 !important; }
+body.dark [style*="color:#999"]{ color:#aaa !important; }
+.close-modal{ background:rgba(0,0,0,.65); }
+body.dark .close-modal{ background:rgba(255,255,255,.22); }
+.btn-friend{ background:#1b8a4a; }
+.btn-follow{ background:#1f6fc2; }
+/* white text on a coloured fill needs a darker fill; Metro blue was too light */
+html[data-theme="metro"] .welcome-banner{ background:#0a78b5; }
+html[data-theme="metro"] .welcome-banner .welcome-heading, html[data-theme="metro"] .welcome-banner .scroll-indicator,
+html[data-theme="metro"] .welcome-banner .scroll-indicator *{ color:#fff; }
+html[data-theme="metro"] .primary{ background:var(--c-accent,#0a78b5); color:#fff; }
+html[data-theme="metro"] .feed-tab.active, html[data-theme="metro"] body.dark .feed-tab.active{ background:#0a78b5; color:#fff; }
+html[data-theme="metro"] .dm-bubble.sent{ background:var(--c-sent,#0a78b5); }
+/* topbar gradients: keep the white logo legible */
+html[data-theme="aero"] .logo{ text-shadow:0 1px 2px rgba(0,40,80,.85), 0 0 6px rgba(0,40,80,.4); }
+html[data-theme="vapor"]{ --t-top:linear-gradient(90deg,#d42bb5,#7a4cf0,#0a9bd0); }
+html[data-theme="vapor"] .logo{ text-shadow:2px 2px 0 rgba(60,0,90,.7); }
+
+/* topbar is always a saturated/dark strip, so its plain buttons are light-on-dark in every mode */
+.topbar .btn:not(.primary):not(.btn-danger){ background:rgba(255,255,255,.18) !important; color:#fff !important; }
+html[data-theme="aero"] .topbar .btn:not(.primary), html[data-theme="vapor"] .topbar .btn:not(.primary){ background:rgba(0,30,70,.35) !important; }
 </style>
 </head>
 <body>
