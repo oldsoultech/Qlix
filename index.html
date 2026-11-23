@@ -457,6 +457,87 @@ body.dark .auto-link{ color:#8ab4ff; }
 .g-btns{ display:flex; gap:6px; flex-wrap:wrap; }
 #gPane textarea{ margin-bottom:8px; }
 select{ font-family:inherit; padding:6px; border-radius:8px; max-width:60%; }
+
+/* ================= Readability fixes (theme x light/dark) =================
+   --on-bg / --on-bg-soft = text that sits directly on the page background
+   (not inside a card). Each theme sets light + dark values so it is always readable. */
+:root{ --on-bg:#fff; --on-bg-soft:rgba(255,255,255,.85); --chip:rgba(255,255,255,.2); --text-shadow-bg:0 1px 3px rgba(0,0,0,.35); }
+html[data-theme="aero"]{ --on-bg:#06314f; --on-bg-soft:rgba(6,49,79,.85); --chip:rgba(255,255,255,.55); --text-shadow-bg:0 1px 0 rgba(255,255,255,.6); }
+html[data-theme="aero"] body.dark{ --on-bg:#fff; --on-bg-soft:rgba(255,255,255,.88); --chip:rgba(255,255,255,.18); --text-shadow-bg:0 1px 3px rgba(0,0,0,.5); }
+html[data-theme="vapor"]{ --on-bg:#2d1b4e; --on-bg-soft:rgba(45,27,78,.88); --chip:rgba(255,255,255,.55); --text-shadow-bg:none; }
+html[data-theme="vapor"] body.dark{ --on-bg:#fff; --on-bg-soft:rgba(255,255,255,.9); --chip:rgba(255,255,255,.14); --text-shadow-bg:0 0 8px rgba(255,113,206,.6); }
+html[data-theme="metro"]{ --on-bg:#1d1d1d; --on-bg-soft:rgba(29,29,29,.8); --chip:#fff; --text-shadow-bg:none; }
+html[data-theme="metro"] body.dark{ --on-bg:#f2f2f2; --on-bg-soft:rgba(242,242,242,.85); --chip:#262626; --text-shadow-bg:none; }
+
+/* logo lives on the top bar, which is always saturated/dark, so it stays light */
+.logo{ color:var(--c-title,#fff); }
+html[data-theme="metro"] .logo{ color:var(--c-title,#fff); }
+
+/* text on the page background */
+.welcome-heading, .app-card strong, .trend-card strong, .groups-title{ color:var(--c-title,var(--on-bg)); text-shadow:var(--text-shadow-bg); }
+html[data-theme="aero"] .welcome-heading, html[data-theme="vapor"] .welcome-heading{ text-shadow:var(--text-shadow-bg); }
+html[data-theme="vapor"] body.dark .welcome-heading{ text-shadow:2px 2px 0 #ff2fb9, 4px 4px 0 rgba(0,212,255,.7); }
+html[data-theme="vapor"] .welcome-heading{ text-shadow:2px 2px 0 rgba(255,255,255,.8); }
+html[data-theme="metro"] .welcome-banner .welcome-heading{ color:#fff; text-shadow:none; }
+.scroll-indicator, .feed-msg, .trend-item, .group-empty{ color:var(--on-bg); }
+.app-card .app-sub, .site-footer{ color:var(--on-bg-soft); }
+.site-footer a{ color:var(--on-bg); }
+.welcome-banner{ background:var(--chip); }
+html[data-theme="metro"] .welcome-banner{ background:#1ba1e2; }
+.trend-item:hover{ background:var(--chip); }
+
+/* tabs / banners that sit on the page background */
+.feed-tab{ background:var(--chip); color:var(--on-bg); }
+.feed-tab.active{ background:var(--on-bg); color:var(--bg-flip,#547538); }
+html[data-theme="aero"] .feed-tab.active{ background:#1a7fc4; color:#fff; }
+html[data-theme="vapor"] .feed-tab.active{ background:#b5179e; color:#fff; }
+html[data-theme="vapor"] body.dark .feed-tab.active{ background:#ff71ce; color:#14052b; }
+html[data-theme="metro"] .feed-tab.active{ background:#1ba1e2; color:#fff; }
+body.dark .feed-tab.active{ background:#fff; color:#1f2a17; }
+html[data-theme="aero"] body.dark .feed-tab.active{ background:#7fd8ff; color:#06314f; }
+html[data-theme="metro"] body.dark .feed-tab.active{ background:#1ba1e2; color:#fff; }
+#tagBanner{ background:var(--chip); color:var(--on-bg); }
+
+/* plain buttons never inherit text color, so make them follow the card text */
+.btn:not(.primary):not(.btn-danger):not(.btn-follow):not(.btn-friend):not(.feed-tab):not(#newPostsPill){ color:inherit; }
+.like-btn, .menu-list .btn, .dm-tab-x{ color:inherit; }
+.btn:not(.primary):not(.btn-danger):not(.btn-follow):not(.btn-friend):not(.feed-tab):not(#newPostsPill):not([style*="background"]){ background:var(--btn-bg,rgba(255,255,255,.55)); }
+body.dark .btn:not(.primary):not(.btn-danger):not(.btn-follow):not(.btn-friend):not(.feed-tab):not(#newPostsPill):not([style*="background"]){ background:var(--btn-bg,rgba(255,255,255,.16)); color:#eee; }
+html[data-theme="vapor"] body.dark{ --btn-bg:rgba(255,113,206,.22); }
+html[data-theme="metro"]{ --btn-bg:#d0d0d0; }
+html[data-theme="metro"] body.dark{ --btn-bg:#3a3a3a; }
+
+/* secondary text inside cards */
+html[data-theme="vapor"] .user-handle-sub, html[data-theme="vapor"] .post-timestamp, html[data-theme="vapor"] .counter{ color:rgba(45,27,78,.7); }
+html[data-theme="aero"] .user-handle-sub, html[data-theme="aero"] .post-timestamp, html[data-theme="aero"] .counter{ color:rgba(6,49,79,.7); }
+body.dark .user-handle-sub, body.dark .post-timestamp, body.dark .counter{ color:rgba(255,255,255,.7); }
+html[data-theme="vapor"] body.dark .mention-link, html[data-theme="vapor"] body.dark .tag-link, html[data-theme="vapor"] body.dark .auto-link{ color:#7fe9ff; }
+html[data-theme="vapor"] .mention-link, html[data-theme="vapor"] .tag-link, html[data-theme="vapor"] .auto-link{ color:#7a0f9c; }
+body.dark .comment-item{ background:rgba(255,255,255,.1); }
+html[data-theme="aero"] .comment-item, html[data-theme="vapor"] .comment-item{ background:rgba(255,255,255,.45); }
+html[data-theme="aero"] body.dark .comment-item, html[data-theme="vapor"] body.dark .comment-item{ background:rgba(255,255,255,.1); }
+.like-btn.liked{ background:rgba(255,255,255,.3); }
+body.dark .repost-box, body.dark .collab-banner{ background:rgba(255,255,255,.1); }
+body.dark .comments-section{ border-top-color:rgba(255,255,255,.18); }
+body.dark textarea, body.dark input[type="text"], body.dark input[type="email"], body.dark input[type="password"], body.dark select{ background:#2b2b2b; color:#eee; }
+body.dark ::placeholder{ color:rgba(255,255,255,.5); }
+html[data-theme="metro"] body.dark textarea, html[data-theme="metro"] body.dark input[type="text"], html[data-theme="metro"] body.dark input[type="email"], html[data-theme="metro"] body.dark input[type="password"]{ background:#2b2b2b; border-color:#555; color:#eee; }
+textarea, input[type="text"], input[type="email"], input[type="password"], select{ color:#1a1a1a; }
+body.dark select{ background:#2b2b2b; color:#eee; }
+body.dark .info-popover-content{ background:#262626; color:#eee; border-color:#444; }
+body.dark .auth-tab{ color:#aaa; } body.dark .auth-tab.active{ color:#9ccc65; border-bottom-color:#9ccc65; }
+body.dark .auth-form label, body.dark .profile-stats span, body.dark .notif-snippet, body.dark .dm-last-snippet{ color:#bbb; }
+body.dark .forgot, body.dark .info-popover-btn{ color:#9ccc65; }
+body.dark .set-row, body.dark .set-sec h4, body.dark .modal-body h3{ color:#eee; }
+body.dark #mentionBox{ background:#262626; color:#eee; } body.dark #mentionBox div:hover{ background:#333; }
+body.dark #emojiBox button:hover{ background:#333; }
+body.dark .sr-item:hover{ background:rgba(255,255,255,.1); }
+body.dark #userSearch{ border-color:#555; }
+body.dark .menu-list .btn-danger{ color:#ff8a80; } body.dark .menu-list .btn-danger:hover{ background:#3a1e1e; }
+body.dark .shared-card{ background:rgba(255,255,255,.1); }
+body.dark .notif-item:hover, body.dark .dm-list-item:hover{ background:#333; }
+/* modals and drawers on dark: buttons with inline light backgrounds keep dark text */
+body.dark .profile-modal .btn[style*="background: #eee"], body.dark .profile-modal .btn[style*="background:#eee"]{ background:#3a3a3a !important; color:#eee; }
 </style>
 </head>
 <body>
