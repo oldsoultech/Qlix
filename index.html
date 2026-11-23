@@ -1807,12 +1807,11 @@ async function openUserProfile(authorId) {
   document.getElementById("modalPostsCount").textContent = userPosts.length - collabCount;
   document.getElementById("modalCollabCount").textContent = collabCount;
   if (!joinedMs) {
-    // no saved join date yet (they haven't signed in since v1.7): show when their first post was instead
+    // no saved join date yet (they haven't signed in since v1.7): use the date of their first post as the join date
     const mine = userPosts.filter(p => p.authorId === authorId && p.timestamp && p.timestamp.toMillis).map(p => p.timestamp.toMillis());
     if (mine.length) {
       document.getElementById("modalJoined").textContent = new Date(Math.min(...mine)).toLocaleDateString([], { month: "short", year: "numeric" });
       const w = document.getElementById("modalJoinedWrap");
-      w.querySelector("span").textContent = "First post";
       w.style.display = "";
     }
   }
