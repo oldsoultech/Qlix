@@ -1674,6 +1674,7 @@ async function openUserProfile(authorId) {
   if (!joinedMs && currentUser && currentUser.uid === authorId && currentUser.metadata && currentUser.metadata.creationTime) joinedMs = new Date(currentUser.metadata.creationTime).getTime();
   document.getElementById("modalJoined").textContent = joinedMs ? new Date(joinedMs).toLocaleDateString([], { month: "short", year: "numeric" }) : "–";
   document.getElementById("modalJoinedWrap").style.display = joinedMs ? "" : "none";
+  document.getElementById("modalJoinedWrap").querySelector("span").textContent = "Joined";
 
   const followersSnap = await getDocs(collection(db, "users", authorId, "followers"));
   const followingSnap = await getDocs(collection(db, "users", authorId, "following"));
@@ -1805,6 +1806,16 @@ async function openUserProfile(authorId) {
   const collabCount = userPosts.filter(p => p.authorId !== authorId).length;
   document.getElementById("modalPostsCount").textContent = userPosts.length - collabCount;
   document.getElementById("modalCollabCount").textContent = collabCount;
+  if (!joinedMs) {
+    // no saved join date yet (they haven't signed in since v1.7): show when their first post was instead
+    const mine = userPosts.filter(p => p.authorId === authorId && p.timestamp && p.timestamp.toMillis).map(p => p.timestamp.toMillis());
+    if (mine.length) {
+      document.getElementById("modalJoined").textContent = new Date(Math.min(...mine)).toLocaleDateString([], { month: "short", year: "numeric" });
+      const w = document.getElementById("modalJoinedWrap");
+      w.querySelector("span").textContent = "First post";
+      w.style.display = "";
+    }
+  }
 
   if (userPosts.length === 0) {
     userFeed.innerHTML = "<p style='font-size:12px; color:#666;'>No posts published yet.</p>";
