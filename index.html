@@ -7,11 +7,12 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#547538">
 <link rel="icon" href="icon-192.png">
+<script>try{var _t=localStorage.getItem("qlixTheme");if(_t&&_t!=="default")document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
 :root{ --panel: rgba(255,255,255,0.15); --radius: 16px; --shadow: 0 8px 24px rgba(0,0,0,0.35); }
-body{ margin:0; font-family:'Comfortaa',sans-serif; background:#547538; color:black; overflow-x:hidden; }
+body{ margin:0; font-family:var(--t-font,'Comfortaa',sans-serif); background:#547538; color:var(--t-text,black); overflow-x:hidden; }
 .topbar{ position:sticky; top:0; backdrop-filter:blur(10px); background:black; padding:10px 16px; display:flex; align-items:center; gap:10px; z-index:10; }
 .logo{ font-weight:800; color:white; cursor:pointer; }
 .wrap{ display:grid; grid-template-columns:260px 1fr; gap:16px; max-width:1100px; margin:14px auto; padding:0 16px; }
@@ -345,14 +346,100 @@ body.dark .menu-list{ background:#262626; color:#eee; } body.dark .menu-list .bt
 .stat-link{ cursor:pointer; }
 #userSearch{ border:1px solid #ccc; }
 /* custom colors (set from Settings) */
-body{ background:var(--c-bg,#547538); }
-body.dark{ background:var(--c-bg,#1f2a17); }
-.topbar{ background:var(--c-top,#000); }
-.logo, .welcome-heading, .app-card strong, .trend-card strong{ color:var(--c-title,#fff); }
-.primary{ color:var(--c-accent,#547538); }
-.dm-bubble.sent{ background:var(--c-sent,#547538); color:var(--c-sent-t,#fff); }
-.dm-bubble.received{ background:var(--c-recv,#e0e0e0); color:var(--c-recv-t,#000); }
-body.dark .dm-bubble.received{ background:var(--c-recv,#333); color:var(--c-recv-t,#eee); }
+body{ background:var(--c-bg,var(--t-bg,#547538)); background-attachment:fixed; min-height:100vh; }
+body.dark{ background:var(--c-bg,var(--t-bg-dark,#1f2a17)); background-attachment:fixed; }
+.topbar{ background:var(--c-top,var(--t-top,#000)); }
+.logo, .welcome-heading, .app-card strong, .trend-card strong{ color:var(--c-title,var(--t-title,#fff)); }
+.primary{ color:var(--c-accent,var(--t-accent,#547538)); }
+.dm-bubble.sent{ background:var(--c-sent,var(--t-sent,#547538)); color:var(--c-sent-t,#fff); }
+.dm-bubble.received{ background:var(--c-recv,var(--t-recv,#e0e0e0)); color:var(--c-recv-t,#000); }
+body.dark .dm-bubble.received{ background:var(--c-recv,var(--t-recv-dark,#333)); color:var(--c-recv-t,#eee); }
+
+/* ================= Themes (Settings > Appearance > Theme) =================
+   Each theme only sets --t-* variables plus a few style touches.
+   "Default" has no rules at all - it is the original look.
+   Custom colours from Settings still override anything set here. */
+.theme-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.theme-tile{ border:2px solid transparent; border-radius:10px; padding:6px; background:rgba(0,0,0,.06); cursor:pointer; font-family:inherit; font-size:12px; color:inherit; text-align:center; }
+.theme-tile:hover{ background:rgba(0,0,0,.12); }
+.theme-tile.active{ border-color:#2e86de; font-weight:bold; }
+.theme-tile .sw{ height:34px; border-radius:6px; margin-bottom:4px; border:1px solid rgba(0,0,0,.2); }
+body.dark .theme-tile{ background:rgba(255,255,255,.08); } body.dark .theme-tile:hover{ background:rgba(255,255,255,.16); }
+
+/* --- Frutiger Aero: glossy sky blue, glass panels, soft glow --- */
+html[data-theme="aero"]{
+  --t-font:"Segoe UI","Frutiger","Trebuchet MS",Tahoma,sans-serif;
+  --t-bg:linear-gradient(165deg,#3fb6f0 0%,#7fd6f7 38%,#b8f0c8 72%,#7bd88f 100%);
+  --t-bg-dark:linear-gradient(165deg,#062a47 0%,#0a4a63 50%,#0b5a45 100%);
+  --t-top:linear-gradient(#6fd0ff,#1c8fd6 55%,#0f6fb5);
+  --t-title:#fff; --t-accent:#1a7fc4;
+  --t-sent:linear-gradient(#7fd8ff,#1a8fe0); --t-recv:linear-gradient(#fff,#e3f4ff); --t-recv-dark:#27475c;
+  --panel:linear-gradient(180deg,rgba(255,255,255,.7),rgba(255,255,255,.3) 55%,rgba(255,255,255,.45));
+  --radius:22px;
+  --shadow:0 10px 28px rgba(0,70,120,.28), inset 0 1px 0 rgba(255,255,255,.95), inset 0 -12px 22px rgba(255,255,255,.14);
+}
+html[data-theme="aero"] body.dark{
+  --panel:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.06) 55%,rgba(255,255,255,.12));
+  --shadow:0 10px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.3);
+}
+html[data-theme="aero"] .card, html[data-theme="aero"] .composer, html[data-theme="aero"] .post{ border:1px solid rgba(255,255,255,.7); }
+html[data-theme="aero"] .topbar{ border-bottom:1px solid rgba(255,255,255,.7); box-shadow:0 4px 14px rgba(0,70,120,.35), inset 0 1px 0 rgba(255,255,255,.6); }
+html[data-theme="aero"] .logo, html[data-theme="aero"] .welcome-heading{ text-shadow:0 1px 3px rgba(0,60,110,.55); }
+html[data-theme="aero"] .btn{ border-radius:999px; }
+html[data-theme="aero"] .btn-sm{ border-radius:999px; }
+html[data-theme="aero"] .primary{ background:linear-gradient(#fff,#cfeeff 60%,#b7e4fb); border:1px solid rgba(255,255,255,.95); box-shadow:0 2px 6px rgba(0,80,140,.3), inset 0 1px 0 #fff; }
+html[data-theme="aero"] .dm-bubble{ box-shadow:0 2px 6px rgba(0,80,140,.25), inset 0 1px 0 rgba(255,255,255,.6); }
+
+/* --- Vaporwave: pastel pink/cyan (light) or neon night (dark), retro grid --- */
+html[data-theme="vapor"]{
+  --t-bg:linear-gradient(180deg,#ffb7f0 0%,#c9a8ff 48%,#8fe9ff 100%);
+  --t-bg-dark:linear-gradient(180deg,#14052b 0%,#3b0d6e 55%,#a0178f 100%);
+  --t-top:linear-gradient(90deg,#ff4fd8,#8a5cff,#00d4ff);
+  --t-title:#fff; --t-accent:#b5179e; --t-text:#2d1b4e;
+  --t-sent:linear-gradient(135deg,#ff5fd2,#8a5cff); --t-recv:#fff0fb; --t-recv-dark:#3a1c63;
+  --panel:rgba(255,255,255,.5); --radius:8px;
+  --shadow:6px 6px 0 rgba(106,40,170,.35);
+  --t-grid:rgba(255,255,255,.65);
+}
+html[data-theme="vapor"] body.dark{
+  --panel:rgba(20,5,43,.7);
+  --shadow:0 0 18px rgba(255,113,206,.45);
+  --t-grid:rgba(1,205,254,.45);
+}
+html[data-theme="vapor"] .card, html[data-theme="vapor"] .composer, html[data-theme="vapor"] .post{ border:2px solid #fff; }
+html[data-theme="vapor"] body.dark .card, html[data-theme="vapor"] body.dark .composer, html[data-theme="vapor"] body.dark .post{ border-color:#01cdfe; }
+html[data-theme="vapor"] .logo, html[data-theme="vapor"] .welcome-heading{ text-shadow:2px 2px 0 #ff2fb9, 4px 4px 0 rgba(0,212,255,.7); letter-spacing:1px; }
+html[data-theme="vapor"] .primary{ background:#fff; border:2px solid #ff71ce; box-shadow:3px 3px 0 #01cdfe; }
+html[data-theme="vapor"] body::before{
+  content:""; position:fixed; left:0; right:0; bottom:0; height:42vh; z-index:-1; pointer-events:none;
+  background-image:linear-gradient(var(--t-grid) 1px,transparent 1px),linear-gradient(90deg,var(--t-grid) 1px,transparent 1px);
+  background-size:44px 44px;
+  transform:perspective(260px) rotateX(58deg); transform-origin:50% 100%;
+  -webkit-mask-image:linear-gradient(transparent,#000 70%); mask-image:linear-gradient(transparent,#000 70%);
+}
+
+/* --- Metro: flat, square, bold type, solid colour --- */
+html[data-theme="metro"]{
+  --t-font:"Segoe UI","Segoe UI Light","Helvetica Neue",Arial,sans-serif;
+  --t-bg:#e6e6e6; --t-bg-dark:#111;
+  --t-top:#1d1d1d; --t-title:#1ba1e2; --t-accent:#1ba1e2;
+  --t-sent:#1ba1e2; --t-recv:#d0d0d0; --t-recv-dark:#333;
+  --panel:#ffffff; --radius:0; --shadow:none;
+}
+html[data-theme="metro"] body.dark{ --panel:#262626; }
+html[data-theme="metro"] .logo{ color:#fff; text-transform:lowercase; font-weight:300; font-size:20px; }
+html[data-theme="metro"] .welcome-heading{ font-weight:300; text-shadow:none; font-size:26px; }
+html[data-theme="metro"] .welcome-banner{ background:#1ba1e2; }
+html[data-theme="metro"] .welcome-banner .welcome-heading{ color:#fff; }
+html[data-theme="metro"] .card, html[data-theme="metro"] .composer, html[data-theme="metro"] .post{ border-left:5px solid #1ba1e2; }
+html[data-theme="metro"] .btn, html[data-theme="metro"] .btn-sm, html[data-theme="metro"] textarea, html[data-theme="metro"] input[type="text"],
+html[data-theme="metro"] input[type="email"], html[data-theme="metro"] input[type="password"], html[data-theme="metro"] .profile-modal,
+html[data-theme="metro"] .dm-drawer, html[data-theme="metro"] .auth-modal, html[data-theme="metro"] .dm-bubble, html[data-theme="metro"] .repost-box,
+html[data-theme="metro"] .shared-card, html[data-theme="metro"] .menu-list, html[data-theme="metro"] .theme-tile, html[data-theme="metro"] .theme-tile .sw,
+html[data-theme="metro"] #emojiBox, html[data-theme="metro"] .toast-item, html[data-theme="metro"] .profile-pic{ border-radius:0; }
+html[data-theme="metro"] textarea, html[data-theme="metro"] input[type="text"], html[data-theme="metro"] input[type="email"], html[data-theme="metro"] input[type="password"]{ background:#f2f2f2; border:2px solid #bdbdbd; }
+html[data-theme="metro"] .primary{ background:var(--c-accent,#1ba1e2); color:#fff; }
+html[data-theme="metro"] .set-sec h4, html[data-theme="metro"] .modal-body h3{ font-weight:300; }
 .auto-link{ color:#1e3799; text-decoration:underline; word-break:break-all; }
 body.dark .auto-link{ color:#8ab4ff; }
 .dm-bubble.sent .auto-link{ color:#d6ecff; }
@@ -641,6 +728,8 @@ select{ font-family:inherit; padding:6px; border-radius:8px; max-width:60%; }
     <div class="set-sec">
       <h4>Appearance</h4>
       <div class="set-row"><span>Dark mode</span><button class="btn btn-sm" id="themeBtn" style="font-size:14px;">🌙</button></div>
+      <h4 style="margin-top:6px;">Theme</h4>
+      <div id="themeList" class="theme-grid"></div>
       <h4 style="margin-top:6px;">Custom colors</h4>
       <div id="colorList"></div>
       <button class="btn btn-sm" id="resetColorsBtn" style="background:#eee; align-self:flex-start;">Reset colors</button>
@@ -726,9 +815,10 @@ const googleProvider = new GoogleAuthProvider();
 // ================================================================
 const APP_INFO = {
   name: "Qlix 2",
-  version: "1.4.1",
+  version: "1.5",
   notes: [
-    "Line breaks in posts now show up when posted instead of becoming one block"
+    "New themes: Frutiger Aero, Vaporwave and Metro (Settings > Appearance > Theme)",
+    "Every theme works in light and dark mode"
   ]
 };
 
@@ -2576,6 +2666,50 @@ const COLOR_DEFS = [
   ["recv", "Their messages", "#e0e0e0"],
   ["accent", "Button text", "#547538"]
 ];
+
+// Themes. The real styling lives in the CSS (html[data-theme="..."] rules);
+// "colors" here are just the solid values the colour pickers show as defaults,
+// and "swatch" is the preview in the picker. To add a theme: add an entry here
+// and a matching html[data-theme="id"] block in the CSS.
+const THEMES = {
+  default: { name: "Default", swatch: "linear-gradient(135deg,#547538,#1f2a17)",
+    colors: { bg: "#547538", title: "#ffffff", top: "#000000", sent: "#547538", recv: "#e0e0e0", accent: "#547538" } },
+  aero:    { name: "Frutiger Aero", swatch: "linear-gradient(135deg,#3fb6f0,#b8f0c8)",
+    colors: { bg: "#7fd6f7", title: "#ffffff", top: "#1c8fd6", sent: "#1a8fe0", recv: "#e3f4ff", accent: "#1a7fc4" } },
+  vapor:   { name: "Vaporwave", swatch: "linear-gradient(135deg,#ff71ce,#b967ff 50%,#01cdfe)",
+    colors: { bg: "#c9a8ff", title: "#ffffff", top: "#8a5cff", sent: "#ff5fd2", recv: "#fff0fb", accent: "#b5179e" } },
+  metro:   { name: "Metro", swatch: "linear-gradient(90deg,#1ba1e2 50%,#1d1d1d 50%)",
+    colors: { bg: "#e6e6e6", title: "#1ba1e2", top: "#1d1d1d", sent: "#1ba1e2", recv: "#d0d0d0", accent: "#1ba1e2" } }
+};
+let currentTheme = "default";
+try { const t = localStorage.getItem("qlixTheme"); if (t && THEMES[t]) currentTheme = t; } catch {}
+function applyStyleTheme() {
+  if (currentTheme === "default") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", currentTheme);
+}
+function renderThemes() {
+  const box = document.getElementById("themeList");
+  box.innerHTML = "";
+  Object.entries(THEMES).forEach(([id, t]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "theme-tile" + (id === currentTheme ? " active" : "");
+    b.setAttribute("aria-pressed", id === currentTheme ? "true" : "false");
+    b.innerHTML = `<div class="sw" style="background:${t.swatch}"></div>${esc(t.name)}`;
+    b.onclick = () => {
+      if (id === currentTheme) return;
+      currentTheme = id;
+      try { localStorage.setItem("qlixTheme", id); } catch {}
+      // custom colours were picked against the old theme, so start clean
+      const hadCustom = Object.keys(customColors).length > 0;
+      customColors = {}; saveColors(); applyColors();
+      applyStyleTheme(); renderThemes(); renderColors();
+      toast(`Theme: ${t.name}` + (hadCustom ? " (custom colors reset)" : ""));
+    };
+    box.appendChild(b);
+  });
+}
+applyStyleTheme();
 let customColors = {};
 try { customColors = JSON.parse(localStorage.getItem("qlixColors") || "{}") || {}; } catch {}
 function textFor(hex) {
@@ -2594,7 +2728,7 @@ function renderColors() {
   COLOR_DEFS.forEach(([k, label, def]) => {
     const row = document.createElement("label");
     row.className = "set-row";
-    row.innerHTML = `<span>${label}</span><input type="color" value="${customColors[k] || def}" aria-label="${label} color">`;
+    row.innerHTML = `<span>${label}</span><input type="color" value="${customColors[k] || THEMES[currentTheme].colors[k] || def}" aria-label="${label} color">`;
     row.querySelector("input").oninput = e => { customColors[k] = e.target.value; saveColors(); applyColors(); };
     box.appendChild(row);
   });
@@ -2639,6 +2773,7 @@ function renderAbout() {
 }
 document.getElementById("settingsBtn").onclick = () => {
   if (!currentUser) return;
+  renderThemes();
   renderColors();
   renderBlocked();
   renderAbout();
