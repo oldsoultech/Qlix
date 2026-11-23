@@ -569,6 +569,29 @@ html[data-theme="vapor"] .logo{ text-shadow:2px 2px 0 rgba(60,0,90,.7); }
 .topbar .btn:not(.primary):not(.btn-danger){ background:rgba(255,255,255,.18) !important; color:#fff !important; }
 html[data-theme="aero"] .topbar .btn:not(.primary), html[data-theme="vapor"] .topbar .btn:not(.primary){ background:rgba(0,30,70,.35) !important; }
 
+
+/* --- v1.7: link previews, scheduling, profile stats --- */
+.link-prev{ display:flex; flex-direction:column; border:1px solid rgba(0,0,0,.18); border-radius:10px; overflow:hidden; background:rgba(255,255,255,.4); color:inherit; text-decoration:none; max-width:100%; margin:6px 0; }
+body.dark .link-prev{ border-color:rgba(255,255,255,.2); background:rgba(255,255,255,.06); }
+.link-prev img{ width:100%; max-height:210px; object-fit:cover; display:block; }
+.link-prev .lp-body{ padding:8px 10px; display:flex; flex-direction:column; gap:2px; text-align:left; }
+.link-prev .lp-site{ font-size:11px; opacity:.7; }
+.link-prev .lp-title{ font-weight:bold; font-size:14px; line-height:1.25; }
+.link-prev .lp-desc{ font-size:12px; opacity:.85; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+#linkPrevBox{ position:relative; }
+#linkPrevBox:empty{ display:none; }
+#linkPrevBox .lp-x{ position:absolute; top:10px; right:6px; z-index:1; }
+#linkPrevBox .lp-loading{ font-size:12px; opacity:.75; margin:0 0 8px; }
+#schedBox{ display:none; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; font-size:13px; }
+#schedBox input{ width:auto; flex:0 1 auto; }
+.sched-row{ border-bottom:1px solid rgba(0,0,0,.12); padding:8px 0; display:flex; flex-direction:column; gap:4px; }
+body.dark .sched-row{ border-bottom-color:rgba(255,255,255,.15); }
+.sched-when{ font-size:12px; opacity:.8; font-weight:bold; }
+.sched-text{ font-size:13px; word-break:break-word; }
+.sched-actions{ display:flex; gap:6px; }
+.profile-stats.sub{ margin-top:0; font-weight:normal; }
+.profile-stats.sub strong{ font-size:13px; }
+
 /* --- PATCO: brushed stainless steel + signal red, flat square corners --- */
 html[data-theme="patco"]{
   --t-font:"Helvetica Neue",Helvetica,Arial,sans-serif;
@@ -693,12 +716,16 @@ html[data-theme="patco"] body.dark .profile-modal .btn-sm:not(.primary):not(.btn
         <input type="text" class="poll-opt" maxlength="40" placeholder="Option 4 (optional)">
       </div>
       <div id="collabBox"><input type="text" id="collabInput" maxlength="120" placeholder="Collaborators, up to 3 (4 people total): @alex @sam @jo" aria-label="Collaborator handles"></div>
+      <div id="linkPrevBox"></div>
+      <div id="schedBox"><label for="schedAt">Publish on</label><input type="datetime-local" id="schedAt"><button type="button" class="btn btn-sm" id="schedClear">✕ Cancel</button></div>
       <div class="composer-tools">
         <button type="button" class="btn btn-sm" id="emojiBtn" data-picker aria-label="Insert emoji">😊</button>
         <button type="button" class="btn btn-sm" id="imgBtn" aria-label="Add image">📷 Image</button>
         <button type="button" class="btn btn-sm" id="vidBtn" aria-label="Add video">🎬 Video</button>
         <button type="button" class="btn btn-sm" id="pollBtn" aria-label="Add poll">📊 Poll</button>
         <button type="button" class="btn btn-sm" id="collabBtn" aria-label="Add a collaborator">🤝 Collab</button>
+        <button type="button" class="btn btn-sm" id="schedBtn" aria-label="Schedule this post">🕐 Schedule</button>
+        <button type="button" class="btn btn-sm" id="schedListBtn" style="display:none;">📅 Scheduled (0)</button>
         <input type="file" id="imgInput" accept="image/*" hidden>
         <input type="file" id="vidInput" accept="video/mp4,video/webm,video/quicktime" hidden>
         <span class="composer-spacer"></span>
@@ -706,7 +733,7 @@ html[data-theme="patco"] body.dark .profile-modal .btn-sm:not(.primary):not(.btn
         <button class="btn primary" id="postBtn">Post</button>
       </div>
     </div>
-    <div class="feed-tabs" id="feedTabs"><button class="btn feed-tab active" data-mode="all">All</button><button class="btn feed-tab" data-mode="following">Following</button><button class="btn feed-tab" data-mode="saved">🔖 Saved</button></div>
+    <div class="feed-tabs" id="feedTabs"><button class="btn feed-tab active" data-mode="all">All</button><button class="btn feed-tab" data-mode="following">Following</button><button class="btn feed-tab" data-mode="saved">🔖 Saved</button><button class="btn feed-tab" data-mode="trending">🔥 Trending</button></div>
     <div id="tagBanner"><span id="tagBannerText"></span><button class="btn btn-sm" id="clearTagBtn">✕ Clear</button></div>
     <button class="btn" id="newPostsPill">New posts ↑</button>
     <div class="feed" id="feed"></div>
@@ -799,6 +826,12 @@ html[data-theme="patco"] body.dark .profile-modal .btn-sm:not(.primary):not(.btn
         <div class="stat-link"><strong id="modalFollowingCount">0</strong><span>Following</span></div>
       </div>
 
+      <div class="profile-stats sub" id="modalStats2">
+        <div><strong id="modalPostsCount">–</strong><span>Posts</span></div>
+        <div><strong id="modalCollabCount">–</strong><span>Collabs</span></div>
+        <div id="modalJoinedWrap"><strong id="modalJoined">–</strong><span>Joined</span></div>
+      </div>
+
       <div class="profile-bio" id="modalProfileBio">No bio added yet.</div>
 
       <!-- Action Buttons -->
@@ -812,6 +845,7 @@ html[data-theme="patco"] body.dark .profile-modal .btn-sm:not(.primary):not(.btn
       <button class="btn btn-sm" id="settingsBtn" style="width: 100%; display: none; background: #eee;">⚙ Settings</button>
 
       <button class="btn btn-sm" id="shareProfileBtn" style="width:100%; background:#eee;">🔗 Copy profile link</button>
+      <button class="btn btn-sm" id="modalMuteBtn" style="width:100%; display:none; background:#eee;">Mute user</button>
       <button class="btn btn-sm" id="modalBlockBtn" style="width:100%; display:none; background:#eee;">Block user</button>
 
       <div id="adminActions" style="display:none; gap:6px; width:100%;"><button class="btn btn-sm" id="verifyBtn" style="flex:1;">Verify ✔</button><button class="btn btn-sm btn-danger" id="banBtn" style="flex:1;">Ban</button></div>
@@ -901,6 +935,11 @@ html[data-theme="patco"] body.dark .profile-modal .btn-sm:not(.primary):not(.btn
       <button class="btn btn-sm" id="resetColorsBtn" style="background:#eee; align-self:flex-start;">Reset colors</button>
     </div>
     <div class="set-sec">
+      <h4>Muted users</h4>
+      <p style="font-size:12px; opacity:.75; margin:0;">Muted people's posts and comments are hidden from your feeds. They aren't told, and they can still message you.</p>
+      <div id="mutedList"></div>
+    </div>
+    <div class="set-sec">
       <h4>Blocked users</h4>
       <div id="blockedList"></div>
     </div>
@@ -959,7 +998,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 import { sendPasswordResetEmail, deleteUser, reauthenticateWithCredential, reauthenticateWithPopup, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { orderBy, limit, startAfter, getCountFromServer, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
 const firebaseConfig = {
@@ -981,10 +1020,14 @@ const googleProvider = new GoogleAuthProvider();
 // ================================================================
 const APP_INFO = {
   name: "Qlix 2",
-  version: "1.6",
+  version: "1.7",
   notes: [
-    "New PATCO theme: brushed steel and red, flat corners (Settings > Appearance > Theme)",
-    "Every theme works in light and dark mode"
+    "Schedule posts for later (the Schedule button in the composer)",
+    "Link previews: pasted links turn into a card with a title and picture",
+    "Mute a user: hide their posts without blocking them",
+    "Trending tab: the most reacted-to and commented posts of the last few days",
+    "Profile stats: posts, collabs and join date",
+    "New PATCO theme: brushed steel and red, flat corners"
   ]
 };
 
@@ -1275,7 +1318,7 @@ function createPostCard(post) {
           <button class="btn btn-sm send-dm-item" role="menuitem">✉️ Send in a message</button>
           ${collabLeave}
           ${isAuthor ? `<button class="btn btn-sm edit-btn" role="menuitem">✏️ Edit</button><button class="btn btn-sm pin-btn" role="menuitem">📌 Pin to profile</button><button class="btn btn-sm btn-danger delete-btn" role="menuitem">🗑 Delete</button>`
-            : (currentUser ? `<button class="btn btn-sm report-btn" role="menuitem">🚩 Report</button>` : "")}${(post.groupId && groupCtx && groupCtx.admin && !isAuthor) ? `<button class="btn btn-sm btn-danger admin-del" role="menuitem">🗑 Remove post</button>` : ""}
+            : (currentUser ? `<button class="btn btn-sm mute-item" role="menuitem">${mutedIds.has(post.authorId) ? "🔈 Unmute" : "🔇 Mute"} ${esc(post.authorName)}</button><button class="btn btn-sm report-btn" role="menuitem">🚩 Report</button>` : "")}${(post.groupId && groupCtx && groupCtx.admin && !isAuthor) ? `<button class="btn btn-sm btn-danger admin-del" role="menuitem">🗑 Remove post</button>` : ""}
         </div>
       </div>
     </div>
@@ -1286,6 +1329,7 @@ function createPostCard(post) {
     ${img ? `<img class="post-img" src="${img}" alt="Image attached to post">` : ""}
     ${vid ? `<video class="post-video" src="${esc(vid)}" controls preload="metadata" playsinline></video>` : ""}
     ${post.poll ? `<div class="poll"></div>` : ""}
+    ${post.linkPreview ? linkPreviewHtml(post.linkPreview) : ""}
     <div class="post-actions">
       <button class="like-btn" aria-label="React">🤍</button>
       <button class="like-btn react-btn" data-picker aria-label="Choose a reaction" title="More reactions">😀+</button>
@@ -1315,8 +1359,9 @@ function createPostCard(post) {
     const id = e.currentTarget.dataset.pid;
     if (id && !rp.fromGroup) location.hash = "#post-" + id;
   });
-  if (blockedIds.has(post.authorId)) card.style.display = "none";
+  if (blockedIds.has(post.authorId) || mutedIds.has(post.authorId)) card.style.display = "none";
   if (post.poll) renderPoll(card.querySelector(".poll"), post);
+  card.querySelectorAll(".link-prev img").forEach(im => { im.onerror = () => im.remove(); });
 
   const setCollab = async (status) => {
     try {
@@ -1372,6 +1417,13 @@ function createPostCard(post) {
       toast(unpin ? "Unpinned" : "Pinned to your profile");
     };
   } else if (currentUser) {
+    card.querySelector(".mute-item").onclick = async () => {
+      const ref = doc(db, "users", currentUser.uid, "muted", post.authorId);
+      try {
+        if (mutedIds.has(post.authorId)) { await deleteDoc(ref); toast("Unmuted " + post.authorName); }
+        else { await setDoc(ref, { timestamp: serverTimestamp() }); toast("Muted " + post.authorName + ". Undo in Settings > Muted users."); }
+      } catch (e) { toast("Couldn't update mute."); }
+    };
     card.querySelector(".report-btn").onclick = async () => {
       await addDoc(collection(db, "reports"), { postId: post.id, reporterId: currentUser.uid, timestamp: serverTimestamp() });
       toast("Reported. Thanks!");
@@ -1471,7 +1523,7 @@ function createPostCard(post) {
       const cDiv = document.createElement("div");
       cDiv.className = "comment-item";
       cDiv.dataset.author = c.authorId;
-      if (blockedIds.has(c.authorId)) cDiv.style.display = "none";
+      if (blockedIds.has(c.authorId) || mutedIds.has(c.authorId)) cDiv.style.display = "none";
       cDiv.innerHTML = `
         <img src="${esc(avatarSrc(c.authorPic, c.authorName))}" alt="${esc(c.authorName)}" class="profile-pic" style="width:24px; height:24px;">
         <div class="comment-content">
@@ -1512,6 +1564,28 @@ function setFeedMode(mode) {
   fetchFeed(true);
 }
 
+// Trending: recent posts ranked by reactions + comments (comments count double), newer posts get a boost
+let trendCache = { at: 0, docs: [] };
+async function getTrendingDocs() {
+  if (Date.now() - trendCache.at < 3 * 60 * 1000 && trendCache.docs.length) return trendCache.docs;
+  const sn = await getDocs(query(collection(db, "posts"), orderBy("timestamp", "desc"), limit(100)));
+  const cutoff = Date.now() - 3 * 864e5, now = Date.now();
+  const cands = sn.docs.filter(d => {
+    const x = d.data();
+    return (x.timestamp?.toMillis() || 0) >= cutoff && !blockedIds.has(x.authorId) && !mutedIds.has(x.authorId);
+  }).slice(0, 40);
+  const scored = await Promise.all(cands.map(async d => {
+    try {
+      const [l, c] = await Promise.all([getCountFromServer(collection(d.ref, "likes")), getCountFromServer(collection(d.ref, "comments"))]);
+      const ageH = (now - d.data().timestamp.toMillis()) / 36e5;
+      return { d, s: (l.data().count + 2 * c.data().count) / Math.pow(ageH + 2, 0.8) };
+    } catch (e) { return { d, s: 0 }; }
+  }));
+  const out = scored.filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 20).map(x => x.d);
+  trendCache = { at: now, docs: out };
+  return out;
+}
+
 async function fetchFeed(reset = true) {
   if (reset) {
     feedEl.innerHTML = skeletons();
@@ -1544,6 +1618,8 @@ async function fetchFeed(reset = true) {
       }
     } else if (feedMode === "saved") {
       docs = (await Promise.all([...bookmarkIds].slice(0, 30).map(id => getDoc(doc(db, "posts", id))))).filter(d => d.exists());
+    } else if (feedMode === "trending") {
+      docs = await getTrendingDocs();
     } else if (feedMode.startsWith("q:")) {
       const term = feedMode.slice(2).toLowerCase();
       const sn = await getDocs(query(collection(db, "posts"), orderBy("timestamp", "desc"), limit(200)));
@@ -1557,10 +1633,10 @@ async function fetchFeed(reset = true) {
   }
   if (reset) feedEl.innerHTML = "";
   const posts = docs.map(d => ({ id: d.id, ...d.data() }));
-  if (feedMode !== "all") posts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+  if (feedMode !== "all" && feedMode !== "trending") posts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
   if (reset && feedMode === "all" && posts[0]) newestId = posts[0].id;
   if (reset && !posts.length) {
-    feedEl.innerHTML = `<p class="feed-msg">${feedMode === "following" ? "Follow people to see their posts here." : feedMode === "saved" ? "No saved posts yet. Tap 🔖 Save on a post." : feedMode === "all" ? "No posts yet. Be the first to post!" : "No posts found."}</p>`;
+    feedEl.innerHTML = `<p class="feed-msg">${feedMode === "following" ? "Follow people to see their posts here." : feedMode === "saved" ? "No saved posts yet. Tap 🔖 Save on a post." : feedMode === "trending" ? "Nothing is trending yet. Posts that get reactions and comments over the last few days show up here." : feedMode === "all" ? "No posts yet. Be the first to post!" : "No posts found."}</p>`;
   }
   await verifiedReady;
   posts.forEach(p => feedEl.appendChild(createPostCard(p)));
@@ -1591,6 +1667,13 @@ async function openUserProfile(authorId) {
   document.getElementById("modalProfileBio").innerHTML = linkify(esc(bio));
   document.getElementById("modalHeaderBanner").style.backgroundImage = headerUrl ? `url(${JSON.stringify(headerUrl)})` : 'none';
   document.getElementById("userPostsTitle").textContent = `${name}'s Posts`;
+
+  document.getElementById("modalPostsCount").textContent = "–";
+  document.getElementById("modalCollabCount").textContent = "–";
+  let joinedMs = userData.joined && userData.joined.toMillis ? userData.joined.toMillis() : 0;
+  if (!joinedMs && currentUser && currentUser.uid === authorId && currentUser.metadata && currentUser.metadata.creationTime) joinedMs = new Date(currentUser.metadata.creationTime).getTime();
+  document.getElementById("modalJoined").textContent = joinedMs ? new Date(joinedMs).toLocaleDateString([], { month: "short", year: "numeric" }) : "–";
+  document.getElementById("modalJoinedWrap").style.display = joinedMs ? "" : "none";
 
   const followersSnap = await getDocs(collection(db, "users", authorId, "followers"));
   const followingSnap = await getDocs(collection(db, "users", authorId, "following"));
@@ -1641,6 +1724,19 @@ async function openUserProfile(authorId) {
       openUserProfile(authorId);
     };
 
+    const muteBtn = document.getElementById("modalMuteBtn");
+    const isMuted = mutedIds.has(authorId);
+    muteBtn.style.display = isBlocked ? "none" : "block";
+    muteBtn.textContent = isMuted ? "Unmute user" : "Mute user";
+    muteBtn.onclick = async () => {
+      const ref = doc(db, "users", currentUser.uid, "muted", authorId);
+      try {
+        if (isMuted) { await deleteDoc(ref); toast("Unmuted"); }
+        else { await setDoc(ref, { timestamp: serverTimestamp() }); toast("Muted. You won't see their posts in your feeds."); }
+      } catch (e) { toast("Couldn't update mute."); }
+      openUserProfile(authorId);
+    };
+
     // moderator-only buttons
     const adm = document.getElementById("adminActions");
     adm.style.display = isAdmin ? "flex" : "none";
@@ -1679,6 +1775,7 @@ async function openUserProfile(authorId) {
   } else {
     msgBtn.style.display = "none";
     document.getElementById("modalBlockBtn").style.display = "none";
+    document.getElementById("modalMuteBtn").style.display = "none";
     document.getElementById("adminActions").style.display = "none";
     followBtn.style.display = "none";
     friendBadge.style.display = "none";
@@ -1705,6 +1802,10 @@ async function openUserProfile(authorId) {
     .map(d => ({ id: d.id, ...d.data() }))
     .sort((a,b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
 
+  const collabCount = userPosts.filter(p => p.authorId !== authorId).length;
+  document.getElementById("modalPostsCount").textContent = userPosts.length - collabCount;
+  document.getElementById("modalCollabCount").textContent = collabCount;
+
   if (userPosts.length === 0) {
     userFeed.innerHTML = "<p style='font-size:12px; color:#666;'>No posts published yet.</p>";
   } else {
@@ -1713,6 +1814,7 @@ async function openUserProfile(authorId) {
     if (pi > 0) userPosts.unshift(userPosts.splice(pi, 1)[0]);
     userPosts.forEach(post => {
       const c = createPostCard(post);
+      if (!blockedIds.has(post.authorId)) c.style.display = "";
       if (pin && post.id === pin) c.insertAdjacentHTML("afterbegin", '<div class="pin-label">📌 Pinned</div>');
       userFeed.appendChild(c);
     });
@@ -1748,15 +1850,25 @@ async function openUserList(uid, kind) {
 
 // Blocking
 let blockedIds = new Set(), blockUnsub = null;
+let mutedIds = new Set(), muteUnsub = null;
 function applyBlocks() {
   document.querySelectorAll("[data-author]").forEach(el => {
-    el.style.display = blockedIds.has(el.dataset.author) ? "none" : "";
+    const hide = blockedIds.has(el.dataset.author) || (mutedIds.has(el.dataset.author) && !(el.matches(".post") && el.closest("#userPostsFeed")));
+    el.style.display = hide ? "none" : "";
   });
 }
 function listenForBlocks() {
   if (blockUnsub) blockUnsub();
   blockUnsub = onSnapshot(collection(db, "users", currentUser.uid, "blocked"), snap => {
     blockedIds = new Set(snap.docs.map(d => d.id));
+    applyBlocks();
+  }, () => {});
+}
+
+function listenForMutes() {
+  if (muteUnsub) muteUnsub();
+  muteUnsub = onSnapshot(collection(db, "users", currentUser.uid, "muted"), snap => {
+    mutedIds = new Set(snap.docs.map(d => d.id));
     applyBlocks();
   }, () => {});
 }
@@ -2091,10 +2203,18 @@ onAuthStateChanged(auth, async (user) => {
 
     listenForNotifications();
     listenForBlocks();
+    listenForMutes();
+    loadScheduled();
+    if (!userData.joined && user.metadata && user.metadata.creationTime) {
+      setDoc(doc(db, "users", user.uid), { joined: Timestamp.fromDate(new Date(user.metadata.creationTime)) }, { merge: true }).catch(() => {});
+    }
     loadUserMeta(userData);
     listenMyGroups();
   } else {
     blockedIds = new Set();
+    if (muteUnsub) { muteUnsub(); muteUnsub = null; }
+    mutedIds = new Set();
+    schedItems = []; updateSchedCount();
     resetUserMeta();
     resetGroups();
     userInfo.style.display = "none";
@@ -2107,7 +2227,7 @@ onAuthStateChanged(auth, async (user) => {
 
   startWelcomeRotation();
   document.getElementById("feedTabs").style.display = user ? "flex" : "none";
-  if (!user && (feedMode === "following" || feedMode === "saved")) setFeedMode("all"); else fetchFeed(true);
+  if (!user && (feedMode === "following" || feedMode === "saved" || feedMode === "trending")) setFeedMode("all"); else fetchFeed(true);
   checkHash();
 });
 
@@ -2115,6 +2235,9 @@ onAuthStateChanged(auth, async (user) => {
 const postTextEl = document.getElementById("postText");
 const postBtnEl = document.getElementById("postBtn");
 let pendingImage = "", pollOpen = false, collabOpen = false;
+let schedOpen = false, pendingPreview = null, previewUrl = "", previewToken = 0, previewTimer = null;
+const previewDismissed = new Set();
+let schedItems = [];
 
 function setPendingImage(d) {
   pendingImage = d;
@@ -2149,6 +2272,10 @@ function resetComposer() {
   collabOpen = false;
   document.getElementById("collabBox").style.display = "none";
   document.getElementById("collabInput").value = "";
+  setPendingPreview(null); previewUrl = ""; previewDismissed.clear();
+  schedOpen = false;
+  document.getElementById("schedBox").style.display = "none";
+  syncPostLabel();
 }
 postTextEl.addEventListener("input", () => {
   document.getElementById("postCounter").textContent = `${postTextEl.value.length}/500`;
@@ -2211,6 +2338,13 @@ postBtnEl.onclick = async () => {
     if (options.length < 2) return toast("Add at least 2 poll options.");
     if (!text) return toast("Add a question for your poll.");
   }
+  let publishAt = null;
+  if (schedOpen) {
+    const v = document.getElementById("schedAt").value;
+    publishAt = v ? new Date(v) : null;
+    if (!publishAt || isNaN(publishAt.getTime()) || publishAt.getTime() < Date.now() + 60000) return toast("Pick a time at least a minute from now.");
+    if (publishAt.getTime() > Date.now() + 90 * 864e5) return toast("You can schedule up to 90 days ahead.");
+  }
   postBtnEl.disabled = true;
   try {
     const userSnap = await getDoc(doc(db, "users", currentUser.uid));
@@ -2230,7 +2364,7 @@ postBtnEl.onclick = async () => {
       }
     }
     const ref = doc(collection(db, "posts"));
-    newestId = ref.id;
+    if (!publishAt) newestId = ref.id;
     let videoData = null;
     if (pendingVideo) {
       const f = pendingVideo.file;
@@ -2255,6 +2389,17 @@ postBtnEl.onclick = async () => {
     }
     if (options) data.poll = { options };
     if (videoData) data.video = videoData;
+    if (pendingPreview) data.linkPreview = pendingPreview;
+    if (publishAt) {
+      const { timestamp: _t, ...rest } = data;
+      try { await setDoc(doc(db, "users", currentUser.uid, "scheduled", ref.id), { ...rest, publishAt: Timestamp.fromDate(publishAt), createdAt: serverTimestamp() }); }
+      catch (e) { if (videoData) deleteObject(sRef(storage, videoData.path)).catch(() => {}); throw e; }
+      resetComposer();
+      await loadScheduled();
+      toast("Scheduled for " + publishAt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }));
+      syncPostLabel(); postBtnEl.disabled = false;
+      return;
+    }
     try { await setDoc(ref, data); }
     catch (e) { if (videoData) deleteObject(sRef(storage, videoData.path)).catch(() => {}); throw e; }
     notifyMentions(text, ref.id);
@@ -2269,9 +2414,155 @@ postBtnEl.onclick = async () => {
   } catch (err) {
     toast("Couldn't post: " + err.message);
   }
-  postBtnEl.textContent = "Post";
+  syncPostLabel();
   postBtnEl.disabled = false;
 };
+
+
+// ---- Link previews (fetched once by the author, then saved on the post) ----
+const PREVIEW_API = "https://api.microlink.io/?url=";
+const cleanPreview = p => {
+  if (!p || typeof p !== "object") return null;
+  const web = u => { try { const x = new URL(String(u)); return /^https?:$/.test(x.protocol) ? x.href : ""; } catch { return ""; } };
+  const url = web(p.url);
+  if (!url) return null;
+  const host = new URL(url).hostname.replace(/^www\./, "");
+  const image = web(p.image);
+  return { url, title: String(p.title || host).slice(0, 120), desc: String(p.desc || "").slice(0, 200), site: String(p.site || host).slice(0, 60), image: image.length <= 600 ? image : "" };
+};
+function linkPreviewHtml(lp) {
+  const c = cleanPreview(lp);
+  if (!c) return "";
+  return `<a class="link-prev" href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}<div class="lp-body"><span class="lp-site">${esc(c.site)}</span><span class="lp-title">${esc(c.title)}</span>${c.desc ? `<span class="lp-desc">${esc(c.desc)}</span>` : ""}</div></a>`;
+}
+async function fetchLinkPreview(url) {
+  try {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 7000);
+    const r = await fetch(PREVIEW_API + encodeURIComponent(url), { signal: ctl.signal });
+    clearTimeout(t);
+    const j = await r.json();
+    if (j.status !== "success" || !j.data) return null;
+    const d = j.data;
+    return cleanPreview({ url, title: d.title, desc: d.description, image: d.image && d.image.url, site: d.publisher });
+  } catch (e) { return null; }
+}
+function setPendingPreview(pv, loading) {
+  pendingPreview = pv;
+  const box = document.getElementById("linkPrevBox");
+  box.innerHTML = "";
+  if (loading) { box.innerHTML = '<p class="lp-loading">Loading link preview…</p>'; return; }
+  if (!pv) return;
+  box.innerHTML = linkPreviewHtml(pv) + '<button type="button" class="btn btn-sm lp-x" aria-label="Remove link preview">✕</button>';
+  box.querySelectorAll(".link-prev img").forEach(im => { im.onerror = () => im.remove(); });
+  box.querySelector(".lp-x").onclick = () => { previewDismissed.add(pv.url); setPendingPreview(null); };
+}
+postTextEl.addEventListener("input", () => {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(async () => {
+    const m = postTextEl.value.match(/https?:\/\/[^\s<>"']+/i);
+    const url = m ? m[0].replace(/[.,!?:;)]+$/, "") : "";
+    if (!url) { previewToken++; previewUrl = ""; setPendingPreview(null); return; }
+    if (url === previewUrl || previewDismissed.has(url)) return;
+    previewUrl = url;
+    const tok = ++previewToken;
+    setPendingPreview(null, true);
+    const pv = await fetchLinkPreview(url);
+    if (tok !== previewToken) return;
+    setPendingPreview(pv);
+  }, 700);
+});
+
+// ---- Scheduled posts (published from this app while it is open) ----
+const syncPostLabel = () => { postBtnEl.textContent = schedOpen ? "Schedule" : "Post"; };
+const toLocalInput = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+document.getElementById("schedBtn").onclick = () => {
+  schedOpen = !schedOpen;
+  const box = document.getElementById("schedBox"), inp = document.getElementById("schedAt");
+  box.style.display = schedOpen ? "flex" : "none";
+  if (schedOpen) {
+    inp.min = toLocalInput(new Date(Date.now() + 60000));
+    inp.max = toLocalInput(new Date(Date.now() + 90 * 864e5));
+    if (!inp.value) { const d = new Date(Date.now() + 3600000); d.setMinutes(0, 0, 0); inp.value = toLocalInput(d); }
+  }
+  syncPostLabel();
+};
+document.getElementById("schedClear").onclick = () => { schedOpen = false; document.getElementById("schedBox").style.display = "none"; syncPostLabel(); };
+
+function updateSchedCount() {
+  const b = document.getElementById("schedListBtn");
+  b.style.display = schedItems.length ? "" : "none";
+  b.textContent = `📅 Scheduled (${schedItems.length})`;
+}
+async function loadScheduled() {
+  if (!currentUser) { schedItems = []; updateSchedCount(); return; }
+  try {
+    const sn = await getDocs(collection(db, "users", currentUser.uid, "scheduled"));
+    schedItems = sn.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.publishAt && x.publishAt.toMillis)
+      .sort((a, b) => a.publishAt.toMillis() - b.publishAt.toMillis());
+  } catch (e) { schedItems = []; }
+  updateSchedCount();
+  checkScheduled();
+}
+const schedBusy = new Set();
+async function publishScheduled(item) {
+  if (!currentUser || schedBusy.has(item.id)) return;
+  schedBusy.add(item.id);
+  try {
+    const { id, publishAt, createdAt, failed, ...data } = item;
+    const pref = doc(db, "posts", id);
+    if (!(await getDoc(pref)).exists()) {
+      await setDoc(pref, { ...data, timestamp: serverTimestamp() });
+      notifyMentions(data.text || "", id);
+      (data.collabUids || []).forEach(uid => notify(uid, "collab", data.text || "", id));
+      newestId = id;
+      if (feedMode === "all" || feedMode === "following") {
+        const empty = feedEl.querySelector(".feed-msg");
+        if (empty) empty.remove();
+        feedEl.prepend(createPostCard({ id, ...data, timestamp: new Date() }));
+      }
+    }
+    await deleteDoc(doc(db, "users", currentUser.uid, "scheduled", id));
+    schedItems = schedItems.filter(x => x.id !== id);
+    updateSchedCount();
+    toast("Your scheduled post is live");
+  } catch (e) {
+    item.failed = true;
+    toast("Couldn't publish a scheduled post: " + (e.message || "error"));
+  }
+  schedBusy.delete(item.id);
+}
+function checkScheduled() {
+  const now = Date.now();
+  schedItems.filter(x => !x.failed && x.publishAt.toMillis() <= now).forEach(publishScheduled);
+}
+setInterval(checkScheduled, 20000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkScheduled(); });
+
+function openSchedList() {
+  const body = document.getElementById("listBody");
+  document.getElementById("listTitle").textContent = "Scheduled posts";
+  body.innerHTML = "";
+  if (!schedItems.length) body.innerHTML = "<p style='font-size:13px; opacity:.7;'>Nothing scheduled.</p>";
+  schedItems.forEach(it => {
+    const row = document.createElement("div");
+    row.className = "sched-row";
+    const label = (it.text || "").slice(0, 140) || (it.video ? "🎬 Video" : it.image ? "📷 Image" : "");
+    row.innerHTML = `<div class="sched-when">🕐 ${esc(it.publishAt.toDate().toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}</div><div class="sched-text">${esc(label)}</div><div class="sched-actions"><button class="btn btn-sm primary sp-now">Post now</button><button class="btn btn-sm btn-danger sp-del">Cancel</button></div>`;
+    row.querySelector(".sp-now").onclick = async () => { await publishScheduled(it); openSchedList(); };
+    row.querySelector(".sp-del").onclick = async () => {
+      if (!confirm("Cancel this scheduled post?")) return;
+      try {
+        await deleteDoc(doc(db, "users", currentUser.uid, "scheduled", it.id));
+        if (it.video && it.video.path) deleteObject(sRef(storage, it.video.path)).catch(() => {});
+        schedItems = schedItems.filter(x => x.id !== it.id);
+        updateSchedCount(); openSchedList();
+      } catch (e) { toast("Couldn't cancel."); }
+    };
+    body.appendChild(row);
+  });
+  document.getElementById("listModal").classList.add("open");
+}
+document.getElementById("schedListBtn").onclick = openSchedList;
 
 // UI Buttons Event Listeners
 document.getElementById("notifTabBtn").onclick = openNotificationsDrawer;
@@ -2728,7 +3019,7 @@ async function deleteMyAccount() {
     const mine = await getDocs(query(collection(db, "posts"), where("authorId", "==", uid)));
     await Promise.all(mine.docs.map(d => deleteDoc(d.ref)));
     mine.docs.forEach(d => { const v = d.data().video; if (v && v.path) deleteObject(sRef(storage, v.path)).catch(() => {}); });
-    for (const sub of ["followers", "following", "blocked", "bookmarks"]) {
+    for (const sub of ["followers", "following", "blocked", "muted", "scheduled", "bookmarks"]) {
       const sn = await getDocs(collection(db, "users", uid, sub));
       await Promise.all(sn.docs.map(d => deleteDoc(d.ref)));
     }
@@ -2753,16 +3044,20 @@ document.getElementById("avatarFile").onchange = async (e) => {
 // Trending hashtags
 async function loadTrending() {
   try {
-    const sn = await getDocs(query(collection(db, "posts"), orderBy("timestamp", "desc"), limit(80)));
-    const weekAgo = Date.now() - 7 * 864e5, counts = {};
-    sn.docs.forEach(d => { const x = d.data(); if ((x.timestamp?.toMillis() || 0) < weekAgo) return; (x.tags || []).forEach(t => counts[t] = (counts[t] || 0) + 1); });
-    const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const sn = await getDocs(query(collection(db, "posts"), orderBy("timestamp", "desc"), limit(150)));
+    const weekAgo = Date.now() - 7 * 864e5, counts = {}, seenTA = new Set();
+    sn.docs.forEach(d => {
+      const x = d.data();
+      if ((x.timestamp?.toMillis() || 0) < weekAgo || blockedIds.has(x.authorId) || mutedIds.has(x.authorId)) return;
+      (x.tags || []).forEach(t => { const k = t + "|" + x.authorId; if (seenTA.has(k)) return; seenTA.add(k); counts[t] = (counts[t] || 0) + 1; });
+    });
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
     const list = document.getElementById("trendList");
     list.innerHTML = "";
     top.forEach(([t, n]) => {
       const row = document.createElement("div");
       row.className = "trend-item"; row.setAttribute("role", "button"); row.tabIndex = 0;
-      row.innerHTML = `<span>#${esc(t)}</span><small>${n} post${n === 1 ? "" : "s"}</small>`;
+      row.innerHTML = `<span>#${esc(t)}</span><small>${n} ${n === 1 ? "person" : "people"}</small>`;
       row.onclick = () => setFeedMode("tag:" + t);
       list.appendChild(row);
     });
@@ -2904,6 +3199,33 @@ function renderColors() {
 document.getElementById("resetColorsBtn").onclick = () => { customColors = {}; saveColors(); applyColors(); renderColors(); toast("Colors reset"); };
 applyColors();
 
+async function renderMuted() {
+  const box = document.getElementById("mutedList");
+  const empty = "<p style='font-size:13px; opacity:.7; margin:0;'>You haven't muted anyone.</p>";
+  const ids = [...mutedIds];
+  if (!ids.length) { box.innerHTML = empty; return; }
+  box.innerHTML = "<p style='font-size:13px; margin:0;'>Loading…</p>";
+  const users = await Promise.all(ids.map(async id => {
+    const sn = await getDoc(doc(db, "users", id)).catch(() => null);
+    return { id, ...((sn && sn.exists()) ? sn.data() : {}) };
+  }));
+  box.innerHTML = "";
+  users.forEach(u => {
+    const row = document.createElement("div");
+    row.className = "set-row";
+    row.innerHTML = `<span style="display:flex; gap:8px; align-items:center;"><img class="profile-pic" style="width:28px;height:28px" src="${esc(avatarSrc(u.photoURL, u.displayName))}" alt="${esc(u.displayName || "User")}"><span>${esc(u.displayName || "User")} <small>${u.handle ? "@" + esc(u.handle) : ""}</small></span></span><button class="btn btn-sm" style="background:#eee; color:#222;">Unmute</button>`;
+    row.querySelector("button").onclick = async () => {
+      try {
+        await deleteDoc(doc(db, "users", currentUser.uid, "muted", u.id));
+        mutedIds.delete(u.id); applyBlocks();
+        row.remove();
+        if (!box.children.length) box.innerHTML = empty;
+        toast("Unmuted");
+      } catch (e) { toast("Couldn't unmute."); }
+    };
+    box.appendChild(row);
+  });
+}
 async function renderBlocked() {
   const box = document.getElementById("blockedList");
   const empty = "<p style='font-size:13px; opacity:.7; margin:0;'>You haven't blocked anyone.</p>";
@@ -2943,6 +3265,7 @@ document.getElementById("settingsBtn").onclick = () => {
   if (!currentUser) return;
   renderThemes();
   renderColors();
+  renderMuted();
   renderBlocked();
   renderAbout();
   document.getElementById("settingsModal").classList.add("open");
