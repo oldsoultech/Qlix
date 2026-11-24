@@ -1020,14 +1020,10 @@ const googleProvider = new GoogleAuthProvider();
 // ================================================================
 const APP_INFO = {
   name: "Qlix 2",
-  version: "1.7",
+  version: "1.7.1",
   notes: [
-    "Schedule posts for later (the Schedule button in the composer)",
-    "Link previews: pasted links turn into a card with a title and picture",
-    "Mute a user: hide their posts without blocking them",
-    "Trending tab: the most reacted-to and commented posts of the last few days",
-    "Profile stats: posts, collabs and join date",
-    "New Metallic theme: brushed steel and red, flat corners"
+    "The PATCO theme is now called Metallic (if you had it picked, you keep it)",
+    "Your theme is saved to your profile, so it follows you to any device"
   ]
 };
 
@@ -2219,6 +2215,7 @@ onAuthStateChanged(auth, async (user) => {
       setDoc(doc(db, "users", user.uid), { joined: Timestamp.fromDate(new Date(user.metadata.creationTime)) }, { merge: true }).catch(() => {});
     }
     loadUserMeta(userData);
+    syncThemeFromProfile(userData);
     listenMyGroups();
   } else {
     blockedIds = new Set();
@@ -2226,6 +2223,7 @@ onAuthStateChanged(auth, async (user) => {
     mutedIds = new Set();
     schedItems = []; updateSchedCount();
     resetUserMeta();
+    resetThemeOnSignOut();
     resetGroups();
     userInfo.style.display = "none";
     composer.style.display = "none";
@@ -3160,6 +3158,33 @@ function applyStyleTheme() {
   if (currentTheme === "default") document.documentElement.removeAttribute("data-theme");
   else document.documentElement.setAttribute("data-theme", currentTheme);
 }
+// The theme lives in the user's profile (users/{uid}.theme). localStorage only keeps a copy
+// so the right theme paints instantly on page load, before sign-in finishes.
+function cacheTheme(id) { try { localStorage.setItem("qlixTheme", id); } catch {} }
+function saveThemeToProfile(id) {
+  if (!currentUser) return;
+  setDoc(doc(db, "users", currentUser.uid), { theme: id }, { merge: true })
+    .catch(() => toast("Couldn't save your theme to your profile."));
+}
+const THEME_ALIASES = { patco: "metallic" };
+function syncThemeFromProfile(u) {
+  let saved = u && u.theme;
+  if (saved && THEME_ALIASES[saved]) saved = THEME_ALIASES[saved];
+  if (saved && THEMES[saved]) {
+    // profile wins over whatever this device had cached
+    if (saved !== currentTheme) { currentTheme = saved; applyStyleTheme(); }
+    cacheTheme(saved);
+    if (saved !== u.theme) saveThemeToProfile(saved);   // rewrites an old "patco" value
+  } else if (currentTheme !== "default") {
+    // first sign-in since this change: move this device's theme into the profile
+    saveThemeToProfile(currentTheme);
+  }
+}
+function resetThemeOnSignOut() {
+  currentTheme = "default";
+  try { localStorage.removeItem("qlixTheme"); } catch {}
+  applyStyleTheme();
+}
 function renderThemes() {
   const box = document.getElementById("themeList");
   box.innerHTML = "";
@@ -3172,7 +3197,8 @@ function renderThemes() {
     b.onclick = () => {
       if (id === currentTheme) return;
       currentTheme = id;
-      try { localStorage.setItem("qlixTheme", id); } catch {}
+      cacheTheme(id);
+      saveThemeToProfile(id);
       // custom colours were picked against the old theme, so start clean
       const hadCustom = Object.keys(customColors).length > 0;
       customColors = {}; saveColors(); applyColors();
