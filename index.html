@@ -1020,10 +1020,9 @@ const googleProvider = new GoogleAuthProvider();
 // ================================================================
 const APP_INFO = {
   name: "Qlix 2",
-  version: "1.7.1",
+  version: "1.7.2",
   notes: [
-    "The PATCO theme is now called Metallic (if you had it picked, you keep it)",
-    "Your theme is saved to your profile, so it follows you to any device"
+    "Older posts and comments now show everyone's current profile picture"
   ]
 };
 
@@ -1196,6 +1195,25 @@ const REACTIONS = ["❤️","👍","😂","😮","😢","🔥"];
 const EMOJIS = ["😀","😂","😍","🥰","😎","🤔","😢","😡","👍","🙏","🎉","🔥","❤️","💯","👀","✨"];
 let verifiedIds = new Set(), bookmarkIds = new Set(), myPinnedId = null, isAdmin = false, notifFirst = true;
 const verifiedReady = getDocs(collection(db, "verified")).then(sn => { verifiedIds = new Set(sn.docs.map(d => d.id)); }).catch(() => {});
+// Posts/comments store the author's picture at the time they were written, so look up the current one.
+const picCache = new Map(); // uid -> Promise<photoURL | null>
+function livePic(uid) {
+  if (!uid) return Promise.resolve(null);
+  if (!picCache.has(uid)) {
+    picCache.set(uid, getDoc(doc(db, "users", uid))
+      .then(sn => sn.exists() ? (sn.data().photoURL || "") : null)
+      .catch(() => { picCache.delete(uid); return null; }));
+  }
+  return picCache.get(uid);
+}
+function applyLivePic(img, uid) {
+  if (!img || !uid) return;
+  livePic(uid).then(p => {
+    if (p === null) return; // keep what the post saved
+    const src = avatarSrc(p, img.alt);
+    if (img.src !== src) { delete img.dataset.fb; img.src = src; }
+  });
+}
 const vbadge = uid => verifiedIds.has(uid) ? ' <span class="vbadge" title="Verified" aria-label="Verified">✔</span>' : "";
 const safeImg = u => (typeof u === "string" && u.startsWith("data:image/")) ? u : "";
 const safeVideo = u => (typeof u === "string" && u.startsWith("https://firebasestorage.googleapis.com/")) ? u : "";
@@ -1379,8 +1397,9 @@ function createPostCard(post) {
   card.querySelector(".collab-leave")?.addEventListener("click", () => { if (confirm("Leave this collab post? It will be removed from your profile.")) setCollab("declined"); });
   card.querySelectorAll(".collab-target").forEach(el => el.addEventListener("click", () => openUserProfile(el.dataset.uid)));
   card.querySelectorAll(".collab-avatar").forEach(im => {
-    getDoc(doc(db, "users", im.dataset.uid)).then(sn => { im.src = avatarSrc((sn.data() || {}).photoURL, im.alt); }).catch(() => {});
+    applyLivePic(im, im.dataset.uid);
   });
+  applyLivePic(card.querySelector(".post-header .profile-pic:not(.collab-avatar)"), post.authorId);
 
   if (isAuthor) {
     card.querySelector(".delete-btn").onclick = async () => {
@@ -1528,6 +1547,7 @@ function createPostCard(post) {
         </div>
         ${canDeleteComment ? `<button class="btn btn-sm btn-danger comment-delete-btn" aria-label="Delete comment">✕</button>` : ''}
       `;
+      applyLivePic(cDiv.querySelector("img.profile-pic"), c.authorId);
       cDiv.querySelector(".comment-author").onclick = () => openUserProfile(c.authorId);
       bindMentionLinks(cDiv);
       if (canDeleteComment) {
@@ -2721,6 +2741,7 @@ document.getElementById("saveProfileBtn").onclick = async () => {
       await updateProfile(currentUser, { displayName: newName, ...(newAvatar.startsWith("data:") ? {} : { photoURL: newAvatar }) });
     }
 
+    picCache.delete(currentUser.uid);
     status.className = "status-msg success";
     status.textContent = "Profile updated successfully!";
 
