@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#547538">
 <link rel="icon" href="icon-192.png">
-<script>try{var _t=localStorage.getItem("qlixTheme");if(_t&&_t!=="default")document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<script>try{var _t=localStorage.getItem("qlixTheme");if(_t==="patco"){_t="metallic";localStorage.setItem("qlixTheme",_t);}if(_t&&_t!=="default")document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
@@ -592,8 +592,8 @@ body.dark .sched-row{ border-bottom-color:rgba(255,255,255,.15); }
 .profile-stats.sub{ margin-top:0; font-weight:normal; }
 .profile-stats.sub strong{ font-size:13px; }
 
-/* --- PATCO: brushed stainless steel + signal red, flat square corners --- */
-html[data-theme="patco"]{
+/* --- Metallic: brushed stainless steel + signal red, flat square corners --- */
+html[data-theme="metallic"]{
   --t-font:"Helvetica Neue",Helvetica,Arial,sans-serif;
   --t-bg:repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 1px,rgba(0,0,0,.03) 1px 3px),linear-gradient(180deg,#d3d6da 0%,#b4b9be 45%,#9ba0a6 100%);
   --t-bg-dark:repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0 1px,rgba(0,0,0,.05) 1px 3px),linear-gradient(180deg,#2e3135 0%,#1d1f22 55%,#141517 100%);
@@ -606,46 +606,46 @@ html[data-theme="patco"]{
   --on-bg:#1b1d20; --on-bg-soft:rgba(27,29,32,.82); --chip:rgba(255,255,255,.55); --text-shadow-bg:0 1px 0 rgba(255,255,255,.55);
   --btn-bg:#d2d5d9;
 }
-html[data-theme="patco"] body.dark{
+html[data-theme="metallic"] body.dark{
   --panel:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 1px,rgba(0,0,0,.04) 1px 3px),linear-gradient(180deg,#3b3f44 0%,#2d3035 50%,#25282c 100%);
   --shadow:0 2px 6px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12);
   --on-bg:#f1f2f3; --on-bg-soft:rgba(241,242,243,.86); --chip:rgba(255,255,255,.1); --text-shadow-bg:0 1px 2px rgba(0,0,0,.6);
   --btn-bg:#3d4146;
 }
 /* flat corners everywhere (avatars, badges, buttons, modals, inputs...) */
-html[data-theme="patco"] *, html[data-theme="patco"] *::before, html[data-theme="patco"] *::after{ border-radius:0 !important; }
+html[data-theme="metallic"] *, html[data-theme="metallic"] *::before, html[data-theme="metallic"] *::after{ border-radius:0 !important; }
 
 /* top bar: red with a steel stripe underneath, like the car livery */
-html[data-theme="patco"] .topbar{ border-bottom:4px solid #cfd2d6; box-shadow:0 3px 8px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.35); }
-html[data-theme="patco"] body.dark .topbar{ border-bottom-color:#6b7077; }
-html[data-theme="patco"] .logo{ letter-spacing:1.5px; font-weight:800; text-shadow:0 1px 2px rgba(60,0,10,.7); }
+html[data-theme="metallic"] .topbar{ border-bottom:4px solid #cfd2d6; box-shadow:0 3px 8px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.35); }
+html[data-theme="metallic"] body.dark .topbar{ border-bottom-color:#6b7077; }
+html[data-theme="metallic"] .logo{ letter-spacing:1.5px; font-weight:800; text-shadow:0 1px 2px rgba(60,0,10,.7); }
 
 /* panels */
-html[data-theme="patco"] .card, html[data-theme="patco"] .composer, html[data-theme="patco"] .post{ border:1px solid #9aa0a6; border-top:3px solid #c8102e; }
-html[data-theme="patco"] body.dark .card, html[data-theme="patco"] body.dark .composer, html[data-theme="patco"] body.dark .post{ border-color:#50555b; border-top-color:#d3182f; }
-html[data-theme="patco"] .welcome-banner{ background:var(--chip); border-left:5px solid #c8102e; }
-html[data-theme="patco"] .welcome-heading{ letter-spacing:1px; font-weight:800; }
+html[data-theme="metallic"] .card, html[data-theme="metallic"] .composer, html[data-theme="metallic"] .post{ border:1px solid #9aa0a6; border-top:3px solid #c8102e; }
+html[data-theme="metallic"] body.dark .card, html[data-theme="metallic"] body.dark .composer, html[data-theme="metallic"] body.dark .post{ border-color:#50555b; border-top-color:#d3182f; }
+html[data-theme="metallic"] .welcome-banner{ background:var(--chip); border-left:5px solid #c8102e; }
+html[data-theme="metallic"] .welcome-heading{ letter-spacing:1px; font-weight:800; }
 
 /* inputs */
-html[data-theme="patco"] textarea, html[data-theme="patco"] input[type="text"], html[data-theme="patco"] input[type="email"], html[data-theme="patco"] input[type="password"], html[data-theme="patco"] select{ background:#f4f5f6; border:1px solid #8d9399; color:#1a1a1a; }
-html[data-theme="patco"] body.dark textarea, html[data-theme="patco"] body.dark input[type="text"], html[data-theme="patco"] body.dark input[type="email"], html[data-theme="patco"] body.dark input[type="password"], html[data-theme="patco"] body.dark select{ background:#2b2e32; border-color:#5a5f66; color:#eee; }
+html[data-theme="metallic"] textarea, html[data-theme="metallic"] input[type="text"], html[data-theme="metallic"] input[type="email"], html[data-theme="metallic"] input[type="password"], html[data-theme="metallic"] select{ background:#f4f5f6; border:1px solid #8d9399; color:#1a1a1a; }
+html[data-theme="metallic"] body.dark textarea, html[data-theme="metallic"] body.dark input[type="text"], html[data-theme="metallic"] body.dark input[type="email"], html[data-theme="metallic"] body.dark input[type="password"], html[data-theme="metallic"] body.dark select{ background:#2b2e32; border-color:#5a5f66; color:#eee; }
 
 /* buttons */
-html[data-theme="patco"] .primary{ background:linear-gradient(180deg,#fbfbfc,#cfd2d6); border:1px solid #8d9399; color:var(--c-accent,#b3122a); box-shadow:inset 0 1px 0 #fff, 0 1px 2px rgba(0,0,0,.25); }
-html[data-theme="patco"] body.dark .primary{ background:linear-gradient(180deg,#5d6269,#3f4348); border-color:#6b7077; color:var(--c-accent,#fff); box-shadow:inset 0 1px 0 rgba(255,255,255,.2); }
-html[data-theme="patco"] .btn-follow{ background:#b3122a; }
-html[data-theme="patco"] .btn-follow.following{ background:#3d4146; }
-html[data-theme="patco"] .topbar .btn:not(.primary):not(.btn-danger){ background:rgba(0,0,0,.22) !important; }
+html[data-theme="metallic"] .primary{ background:linear-gradient(180deg,#fbfbfc,#cfd2d6); border:1px solid #8d9399; color:var(--c-accent,#b3122a); box-shadow:inset 0 1px 0 #fff, 0 1px 2px rgba(0,0,0,.25); }
+html[data-theme="metallic"] body.dark .primary{ background:linear-gradient(180deg,#5d6269,#3f4348); border-color:#6b7077; color:var(--c-accent,#fff); box-shadow:inset 0 1px 0 rgba(255,255,255,.2); }
+html[data-theme="metallic"] .btn-follow{ background:#b3122a; }
+html[data-theme="metallic"] .btn-follow.following{ background:#3d4146; }
+html[data-theme="metallic"] .topbar .btn:not(.primary):not(.btn-danger){ background:rgba(0,0,0,.22) !important; }
 
 /* tabs, bubbles, links */
-html[data-theme="patco"] .feed-tab.active, html[data-theme="patco"] body.dark .feed-tab.active{ background:#c8102e; color:#fff; }
-html[data-theme="patco"] .dm-bubble{ box-shadow:0 1px 3px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.3); }
-html[data-theme="patco"] .comment-item{ background:rgba(255,255,255,.55); }
-html[data-theme="patco"] body.dark .comment-item{ background:rgba(255,255,255,.08); }
-html[data-theme="patco"] .user-handle-sub, html[data-theme="patco"] .post-timestamp, html[data-theme="patco"] .counter{ color:rgba(28,30,33,.7); }
-html[data-theme="patco"] body.dark .user-handle-sub, html[data-theme="patco"] body.dark .post-timestamp, html[data-theme="patco"] body.dark .counter{ color:rgba(255,255,255,.7); }
-html[data-theme="patco"] .profile-modal .btn-sm:not(.primary):not(.btn-danger):not(.btn-follow){ background:#d2d5d9; color:#1c1e21; }
-html[data-theme="patco"] body.dark .profile-modal .btn-sm:not(.primary):not(.btn-danger):not(.btn-follow){ background:#3d4146 !important; }
+html[data-theme="metallic"] .feed-tab.active, html[data-theme="metallic"] body.dark .feed-tab.active{ background:#c8102e; color:#fff; }
+html[data-theme="metallic"] .dm-bubble{ box-shadow:0 1px 3px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.3); }
+html[data-theme="metallic"] .comment-item{ background:rgba(255,255,255,.55); }
+html[data-theme="metallic"] body.dark .comment-item{ background:rgba(255,255,255,.08); }
+html[data-theme="metallic"] .user-handle-sub, html[data-theme="metallic"] .post-timestamp, html[data-theme="metallic"] .counter{ color:rgba(28,30,33,.7); }
+html[data-theme="metallic"] body.dark .user-handle-sub, html[data-theme="metallic"] body.dark .post-timestamp, html[data-theme="metallic"] body.dark .counter{ color:rgba(255,255,255,.7); }
+html[data-theme="metallic"] .profile-modal .btn-sm:not(.primary):not(.btn-danger):not(.btn-follow){ background:#d2d5d9; color:#1c1e21; }
+html[data-theme="metallic"] body.dark .profile-modal .btn-sm:not(.primary):not(.btn-danger):not(.btn-follow){ background:#3d4146 !important; }
 </style>
 </head>
 <body>
@@ -1027,7 +1027,7 @@ const APP_INFO = {
     "Mute a user: hide their posts without blocking them",
     "Trending tab: the most reacted-to and commented posts of the last few days",
     "Profile stats: posts, collabs and join date",
-    "New PATCO theme: brushed steel and red, flat corners"
+    "New Metallic theme: brushed steel and red, flat corners"
   ]
 };
 
@@ -3151,11 +3151,11 @@ const THEMES = {
     colors: { bg: "#c9a8ff", title: "#ffffff", top: "#8a5cff", sent: "#ff5fd2", recv: "#fff0fb", accent: "#b5179e" } },
   metro:   { name: "Metro", swatch: "linear-gradient(90deg,#1ba1e2 50%,#1d1d1d 50%)",
     colors: { bg: "#e6e6e6", title: "#1ba1e2", top: "#1d1d1d", sent: "#1ba1e2", recv: "#d0d0d0", accent: "#1ba1e2" } },
-  patco:   { name: "PATCO", swatch: "linear-gradient(180deg,#c8102e 0 34%,#e3e5e8 34% 58%,#8e949a 58%)",
+  metallic: { name: "Metallic", swatch: "linear-gradient(180deg,#c8102e 0 34%,#e3e5e8 34% 58%,#8e949a 58%)",
     colors: { bg: "#b4b9be", title: "#1b1d20", top: "#c8102e", sent: "#b3122a", recv: "#d3d6da", accent: "#b3122a" } }
 };
 let currentTheme = "default";
-try { const t = localStorage.getItem("qlixTheme"); if (t && THEMES[t]) currentTheme = t; } catch {}
+try { let t = localStorage.getItem("qlixTheme"); if (t === "patco") t = "metallic"; if (t && THEMES[t]) currentTheme = t; } catch {}
 function applyStyleTheme() {
   if (currentTheme === "default") document.documentElement.removeAttribute("data-theme");
   else document.documentElement.setAttribute("data-theme", currentTheme);
