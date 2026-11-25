@@ -878,6 +878,7 @@ html[data-theme="metallic"] body.dark .profile-modal .btn-sm:not(.primary):not(.
 
         <label>Header Image URL</label>
         <input type="text" id="editHeaderInput" placeholder="https://example.com/banner.jpg">
+        <label>Or upload a header image <input type="file" id="headerFile" accept="image/*"></label>
 
         <button class="btn primary btn-sm" id="saveProfileBtn" style="margin-top: 6px;">Save Changes</button>
         <div class="status-msg" id="uploadStatus"></div>
@@ -3085,6 +3086,32 @@ async function deleteMyAccount() {
   }
 }
 document.getElementById("deleteAccountBtn").onclick = deleteMyAccount;
+
+// Header image upload (wide crop, stored with your profile like the profile photo)
+function resizeBanner(file, w = 880, h = 200, quality = 0.7) {
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      // crop the middle of the picture to the banner's shape
+      const target = w / h;
+      let sw = img.width, sh = img.height, sx = 0, sy = 0;
+      if (sw / sh > target) { const nw = sh * target; sx = (sw - nw) / 2; sw = nw; }
+      else { const nh = sw / target; sy = (sh - nh) / 2; sh = nh; }
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => rej(new Error("That file isn't a usable image."));
+    img.src = url;
+  });
+}
+document.getElementById("headerFile").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try { document.getElementById("editHeaderInput").value = await resizeBanner(f); toast("Header ready. Press Save Changes."); }
+  catch (err) { toast(err.message); }
+};
 
 // Profile photo upload (small square, stored with your profile)
 document.getElementById("avatarFile").onchange = async (e) => {
