@@ -15,75 +15,59 @@ The apps aren't code-signed yet, so your computer may show a warning the first t
 - **Windows:** click **More info → Run anyway**.
 - **Mac:** unzip, then right-click `Qlix.app` and choose **Open** (or use **System Settings → Privacy & Security → Open Anyway**).
 
-## What's new
+**Current version:** 1.8
 
-### Feed
-- **Pages of posts:** the feed loads 20 posts at a time, with a **Load more** button.
-- **No more page jumps:** new posts appear at the top and deleted posts disappear without reloading the whole feed.
-- **New posts button:** a "New posts ↑" button shows up when someone else posts while you're reading.
-- **Following tab:** see only posts from people you follow.
-- **Loading skeletons** replace the plain "Loading posts…" text.
-- **Friendlier times:** "5m ago", "3h ago" and "Yesterday" instead of full dates.
+## Features
 
-### Posting and social
-- **Likes** with a heart animation and a count.
-- **Edit your posts.** Edited posts show "edited".
-- **Hashtags:** `#tags` are clickable and open a feed for that tag. Only posts made after this update can be found by tag.
-- **@mention suggestions:** type `@` and pick a user from the list, in posts and comments.
-- **User search** in the sidebar.
-- **Enter to send:** Enter posts or sends, and Shift+Enter adds a new line.
-- **500-character limit** with a live counter, and the Post button disables while sending so nothing double-posts.
-- **Report** button on other people's posts.
+**Posting**
+- Text posts up to 500 characters with `@mentions` and `#hashtags`
+- Images (resized in the browser), videos (MP4, WebM or MOV, up to 50 MB and 60 seconds) and polls with 2 to 4 options
+- Link previews, fetched once by the author and saved on the post
+- Scheduled posts, up to 90 days ahead. They publish while the app is open.
+- Collab posts: invite up to 3 people (4 total). The post appears on everyone's profile once they accept.
+- Edit, delete, pin to your profile, and copy a direct link to any post
 
-### Posts
-- **Images:** attach a photo to a post (resized automatically).
-- **Polls:** add a question with 2–4 options. One vote each, results show after you vote.
-- **Reactions:** react with ❤️ 👍 😂 😮 😢 🔥, not just a heart, and see the mix on each post.
-- **Emoji picker** in the post box.
-- **Reposts** to share someone's post with your followers, and **Saved posts** (🔖) with their own tab.
-- **Post links:** every post has a 🔗 link that opens it on its own. Click the time on a post to open it.
-- **Pinned post:** pin one of your posts (📌) to the top of your profile.
-- **Collab posts:** invite up to 3 other users (4 people in total) to co-author a post with 🤝 Collab. It appears on each person's profile once they accept, and they can leave later.
-- **Trending hashtags** in the sidebar, and **post search** (type in the search box and press Enter).
+**Interaction**
+- Six emoji reactions, comments, reposts and quote reposts
+- Save (bookmark) posts
+- Send a post to someone in a direct message
+- Notifications for mentions, replies, likes, follows, reposts, collabs and group activity
 
-### Accounts and safety
-- **Account switcher:** stay signed in to several accounts on one device and switch between them with 👥 Switch account (sidebar or Settings), no password needed. Use "Sign out of all accounts" on shared computers.
-- **Profile links:** share any profile with the 🔗 button in its profile window (on your own profile it says Share my profile). Opening the link shows that profile.
-- **Profile photo upload** instead of pasting a link.
-- **Delete my account** (Edit Profile → bottom of the form).
-- **Terms, Privacy Policy and Community Rules** (footer, and agreed to when registering).
-- **Verified badges** ✔ and a **moderator panel** (🔨 Mod) for reviewing reports, deleting posts and banning accounts.
+**Feeds and discovery**
+- All, Following, Saved and Trending tabs
+- Trending hashtags in the sidebar, and a "New posts" pill when fresh posts arrive
+- Search for users and posts, and click any hashtag to see its posts
 
-### App feel
-- **Install it:** Qlix can be installed from the browser as an app on phones and computers, and shows an offline notice when your connection drops.
-- **Desktop alerts** for new messages and notifications while Qlix is in the background (allow notifications when asked).
-- **Accessibility:** keyboard navigation, visible focus outlines, screen reader labels, a skip link, and reduced-motion support.
+**Direct messages**
+- One-to-one chats with typing indicator and Sent/Seen receipts
+- Browser notifications when the tab is in the background
 
-### Notifications and messages
-- **More notifications:** likes, replies and new followers, along with mentions and DMs.
-- **Separate DM badge:** unread messages show on 💬 DMs, and the 🔔 badge counts everything else.
-- **Typing indicator:** see "typing…" when the other person is writing to you.
-- **Read receipts:** your latest message shows ✓ Sent or ✓✓ Seen.
-- **Blocking:** block someone from their profile. You won't see their posts, comments or messages, and they can't message or notify you. Unblock any time from the same place.
+**Groups**
+- Public groups (anyone can join) and private groups (join by request)
+- Roles: owner, admin and member
+- Admins can add people, approve requests and remove posts
+- Group posts support polls, reactions, comments and collabs
 
-### Look and feel
-- **Settings tab** on your own profile: dark mode, custom colors (page, top bar, titles, post text, messages, buttons), your blocked accounts with Unblock, and Sign out. Your choices sync to your account.
-- **Post menu (⋯):** copy link, edit, pin, report or delete from one dropdown.
-- **Followers and Following lists** can be opened from any profile.
-- **Search** is now the magnifier in the top bar.
-- **Toasts:** small messages like "Posted!" replace pop-up alerts.
-- **Initial avatars:** users without a profile picture, or with a broken image link, get a colored circle with their initial.
-- **Esc closes panels,** and clicking the dark background closes profile and sign-in windows.
+**Profiles**
+- Profile photo and header image, either by URL or by uploading a picture
+- Bio, follower and following lists, post and collab counts, and join date
+- Mutual follows show a "Friends" badge
+- Shareable profile links
 
-### Accounts
-- **Forgot password?** link on the sign-in form sends a reset email.
+**Safety and moderation**
+- Block and mute users
+- Report posts
+- Moderator panel to delete reported posts, ban authors and verify accounts (✔ badge)
+- Delete your own account from your profile
 
-### Security
-- Post, comment, DM, name and notification text is now escaped, so pasted HTML or scripts can't run in other people's browsers.
+**Appearance**
+- Dark mode
+- Five themes: Default, Frutiger Aero, Vaporwave, Metro and Metallic. Your theme is saved to your profile.
+- Custom colors for the background, title, top bar and message bubbles
+- Accessibility: skip link, keyboard navigation, focus outlines, reduced-motion support
 
-## Known issues
-- Google sign-in may not work inside the desktop and Android apps. Email and password sign-in works everywhere.
-- Notifications only arrive while Qlix is open or in the background. Push alerts when it's fully closed aren't supported yet.
-- Images are stored inside posts, so very large or many images make the feed slower. Poll votes can't be changed.
-- Blocking is one-way: a blocked person isn't told, and can still see your public posts.
-- It's a beta, so please report anything that looks wrong.
+## Known limitations
+
+- Cloudinary videos can't be deleted from the browser, so deleting a video post leaves the file in your Cloudinary storage. You can clear them from the Cloudinary dashboard.
+- Scheduled posts publish only while the author has Qlix open.
+- Search and trending look at recent posts only.
