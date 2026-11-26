@@ -2,13 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Qlix 2</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#547538">
 <link rel="icon" href="icon-192.png">
 <script>try{var _t=localStorage.getItem("qlixTheme");if(_t==="patco"){_t="metallic";localStorage.setItem("qlixTheme",_t);}if(_t&&_t!=="default")document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Qlix">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
 :root{ --panel: rgba(255,255,255,0.15); --radius: 16px; --shadow: 0 8px 24px rgba(0,0,0,0.35); }
@@ -646,6 +650,15 @@ html[data-theme="metallic"] .user-handle-sub, html[data-theme="metallic"] .post-
 html[data-theme="metallic"] body.dark .user-handle-sub, html[data-theme="metallic"] body.dark .post-timestamp, html[data-theme="metallic"] body.dark .counter{ color:rgba(255,255,255,.7); }
 html[data-theme="metallic"] .profile-modal .btn-sm:not(.primary):not(.btn-danger):not(.btn-follow){ background:#d2d5d9; color:#1c1e21; }
 html[data-theme="metallic"] body.dark .profile-modal .btn-sm:not(.primary):not(.btn-danger):not(.btn-follow){ background:#3d4146 !important; }
+
+/* ---- Installed-app (PWA) polish: keep content clear of the notch and home bar ---- */
+.topbar{ padding-top:calc(10px + env(safe-area-inset-top, 0px)); }
+#offlineBar{ padding-top:calc(6px + env(safe-area-inset-top, 0px)); }
+body{ padding-bottom:env(safe-area-inset-bottom, 0px); }
+#toast{ bottom:calc(20px + env(safe-area-inset-bottom, 0px)); }
+#installBanner{ display:none; position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom, 0px)); z-index:190; max-width:520px; margin:0 auto; background:#000; color:#fff; border-radius:14px; padding:12px 14px; font-size:13px; line-height:1.4; box-shadow:var(--shadow); align-items:center; gap:10px; }
+#installBanner span{ flex:1; }
+#installBanner button{ background:rgba(255,255,255,.2); color:#fff; border:none; border-radius:8px; padding:6px 10px; cursor:pointer; font-family:inherit; }
 </style>
 </head>
 <body>
@@ -948,6 +961,11 @@ html[data-theme="metallic"] body.dark .profile-modal .btn-sm:not(.primary):not(.
       <h4>Account</h4>
       <button class="btn btn-danger" id="signOutBtn" style="align-self:flex-start;">Sign Out</button>
     </div>
+    <div class="set-sec" id="installSec" style="display:none;">
+      <h4>Install app</h4>
+      <div id="installHelp" style="font-size:13px; opacity:.8;"></div>
+      <button class="btn primary" id="installBtn" style="display:none; align-self:flex-start; background:#547538; color:#fff;">Install Qlix</button>
+    </div>
     <div class="set-sec">
       <h4>About</h4>
       <div class="set-row"><span id="aboutName">Qlix</span><strong id="aboutVersion"></strong></div>
@@ -977,6 +995,7 @@ html[data-theme="metallic"] body.dark .profile-modal .btn-sm:not(.primary):not(.
     <div id="shareList"></div>
   </div></div></div>
 
+<div id="installBanner" role="status"><span id="installBannerText"></span><button id="installBannerClose" aria-label="Dismiss">Got it</button></div>
 <div id="toast"></div>
 <div id="mentionBox"></div>
 <div id="emojiBox"></div>
@@ -1021,9 +1040,10 @@ const googleProvider = new GoogleAuthProvider();
 // ================================================================
 const APP_INFO = {
   name: "Qlix 2",
-  version: "1.8",
+  version: "1.9",
   notes: [
-    "Videos function fixed: video posts now upload and play reliably"
+    "Install Qlix on your phone: Add to Home Screen on iPhone, or Install app on Android and desktop (Settings > Install app)",
+    "Opens full-screen with its own icon, and keeps working with the notch and home bar"
   ]
 };
 
@@ -3157,6 +3177,39 @@ const offBar = document.getElementById("offlineBar");
 const updNet = () => { offBar.style.display = navigator.onLine ? "none" : "block"; };
 window.addEventListener("online", updNet); window.addEventListener("offline", updNet); updNet();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+// Install helper: "Add to Home Screen" instructions on iPhone, a real Install button where the browser supports it
+(() => {
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (standalone) return;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const sec = document.getElementById("installSec"), help = document.getElementById("installHelp"), btn = document.getElementById("installBtn");
+  const banner = document.getElementById("installBanner");
+  const iosText = "To install Qlix on iPhone: tap the Share button in Safari, then choose Add to Home Screen.";
+  let deferred = null;
+  if (isIOS) { sec.style.display = ""; help.textContent = iosText; }
+  window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault(); deferred = e;
+    sec.style.display = ""; help.textContent = "Install Qlix as an app on this device."; btn.style.display = "";
+  });
+  btn.addEventListener("click", async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    try { await deferred.userChoice; } catch (e) {}
+    deferred = null; btn.style.display = "none";
+  });
+  window.addEventListener("appinstalled", () => { sec.style.display = "none"; banner.style.display = "none"; });
+  // one-time nudge on iPhone (dismissal is remembered on this device)
+  let dismissed = false; try { dismissed = localStorage.getItem("qlixInstallDismissed") === "1"; } catch (e) {}
+  if (isIOS && !dismissed) setTimeout(() => {
+    document.getElementById("installBannerText").textContent = iosText;
+    banner.style.display = "flex";
+  }, 4000);
+  document.getElementById("installBannerClose").addEventListener("click", () => {
+    banner.style.display = "none";
+    try { localStorage.setItem("qlixInstallDismissed", "1"); } catch (e) {}
+  });
+})();
 
 // Accessibility pass
 const setLabel = (id, t) => { const el = document.getElementById(id); if (el) el.setAttribute("aria-label", t); };
